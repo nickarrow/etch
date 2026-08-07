@@ -22,12 +22,10 @@ appears, and it travels with the file when it syncs or moves.
 
 ## Why a handoff
 
-Ink in Obsidian usually means a canvas: whiteboard plugins like Excalidraw
-and the PDF ink plugins draw with pointer events inside the webview and
-store strokes in their own files. The PDF itself never changes, so that ink
-is invisible outside the plugin that made it. PencilKit, the ink framework
-behind Apple's own apps, is native UIKit and unavailable to webview
-plugins. Etch splits the job instead: Obsidian keeps the vault, Preview
+Drawing tools inside Obsidian work on a canvas in the webview, and the
+webview is the boundary: PencilKit, the ink framework behind Apple's own
+apps, is native UIKit, and no plugin can ship it. Etch gets PencilKit by
+handing the file to the app that has it. Obsidian keeps the vault, Preview
 brings the Pencil, and the markup lands in the PDF as ordinary annotations
 that later sessions can re-edit or erase.
 
