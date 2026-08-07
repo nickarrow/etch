@@ -3,7 +3,7 @@
 	"name": "Etch",
 	"version": "0.1.0",
 	"minAppVersion": "1.13.4",
-	"description": "Mark up PDFs with Apple Pencil in Apple Preview, saving changes into the same vault file.",
+	"description": "Native Apple Pencil markup for vault PDFs. One tap opens Apple Preview, and the ink saves into the same vault file.",
 	"author": "Nick Aretakis",
 	"authorUrl": "https://github.com/nickarrow",
 	"isDesktopOnly": false

@@ -1,8 +1,10 @@
 # Etch
 
-Mark up vault PDFs with Apple Pencil in Apple Preview. The ink lands in the
-same vault file, so it shows up everywhere the PDF appears and travels with
-the file when it syncs or moves.
+Native Apple Pencil markup for Obsidian PDFs.
+
+One tap opens a vault PDF in Apple Preview. Draw with the Pencil, switch
+back, and the ink is in the same vault file: visible everywhere the PDF
+appears, and it travels with the file when it syncs or moves.
 
 ## Limitations
 
@@ -17,6 +19,17 @@ the file when it syncs or moves.
 - On the Files viewer route, markup saves when you tap its check mark.
   Leaving Files without that tap leaves the file unchanged until you return
   and tap it.
+
+## Why a handoff
+
+Ink in Obsidian usually means a canvas: whiteboard plugins like Excalidraw
+and the PDF ink plugins draw with pointer events inside the webview and
+store strokes in their own files. The PDF itself never changes, so that ink
+is invisible outside the plugin that made it. PencilKit, the ink framework
+behind Apple's own apps, is native UIKit and unavailable to webview
+plugins. Etch splits the job instead: Obsidian keeps the vault, Preview
+brings the Pencil, and the markup lands in the PDF as ordinary annotations
+that later sessions can re-edit or erase.
 
 ## How it works
 
