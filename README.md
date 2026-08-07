@@ -43,7 +43,9 @@ Three ways to start, all equivalent:
   placed on the mobile toolbar.
 
 Draw with the Pencil, switch back to Obsidian, and the PDF view and any
-embeds of it refresh on their own.
+embeds of it refresh on their own. If Obsidian restarts while you are away,
+Etch re-checks the file on the next launch and shows a notice if the markup
+landed.
 
 ## Settings
 

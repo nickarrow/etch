@@ -42,6 +42,9 @@ export function resolveAbsolutePath(app: App, file: TFile): ResolveResult {
 	let encodedPath = resourcePath.slice(
 		markerIndex + CAPACITOR_FILE_MARKER.length,
 	);
+	// Strip any query string. A literal '?' in a filename would truncate
+	// here too, then fail the filename check below: a loud decline, never a
+	// wrong navigation.
 	const queryIndex = encodedPath.indexOf('?');
 	if (queryIndex !== -1) encodedPath = encodedPath.slice(0, queryIndex);
 

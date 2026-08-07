@@ -1,11 +1,10 @@
 import { App } from 'obsidian';
 
 /**
- * Logger with two levels. Errors always go to the console. When debug logging
- * is enabled, verbose lines are also appended to a file in the plugin folder,
- * because a successful handoff backgrounds Obsidian and iOS may tear down the
- * webview, taking the console history with it. Callers await every write that
- * must survive a navigation.
+ * Logger with two levels. Errors always go to the console. Verbose lines go
+ * to a file in the plugin folder while the debug toggle is on, since console
+ * history does not survive the webview teardown that can follow a handoff.
+ * Callers await any write that must be on disk before a navigation.
  */
 export class EtchLog {
 	private enabled = false;

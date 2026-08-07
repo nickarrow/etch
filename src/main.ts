@@ -7,9 +7,13 @@ import {
 	normalizePath,
 } from 'obsidian';
 import { EtchLog } from './log';
-import { performHandoff } from './routes';
+import { isRouteId, performHandoff } from './routes';
 import { DEFAULT_SETTINGS, EtchSettings, EtchSettingTab } from './settings';
-import { WitnessRecord, checkWitnessRecord } from './witness';
+import {
+	WitnessRecord,
+	WitnessReport,
+	checkWitnessRecord,
+} from './witness';
 
 interface EtchData {
 	settings: EtchSettings;
@@ -20,6 +24,7 @@ const MARK_UP_NAME = 'Mark up with Pencil';
 const MARK_UP_ICON = 'pencil';
 const PDF_VIEW_TYPE = 'pdf';
 const VIEW_ACTION_CLASS = 'etch-view-action';
+const RECHECK_DELAY_MS = 3000;
 
 function isIpad(): boolean {
 	return Platform.isIosApp && Platform.isTablet;
@@ -163,8 +168,11 @@ export default class EtchPlugin extends Plugin {
 
 	/**
 	 * The manual command may be rerun freely and the latest result
-	 * supersedes. The automatic startup check reports a handoff once and
-	 * clears the armed record after a changed result.
+	 * supersedes; it never clears the record. The automatic startup check
+	 * reports at most once, absorbs Preview's save timing with one delayed
+	 * re-read, and clears the record whatever the outcome. A record that
+	 * never cleared would repeat its notice on every launch, and a missing
+	 * or unchanged file cannot resolve itself.
 	 */
 	private async verifyLastHandoff(mode: 'manual' | 'automatic'): Promise<void> {
 		const record = this.witnessRecord;
@@ -173,18 +181,24 @@ export default class EtchPlugin extends Plugin {
 			return;
 		}
 		try {
-			const report = await checkWitnessRecord(this.app, record);
-			await this.log.line(
-				`verify (${mode}) ${record.vaultPath}: armed size=${record.size} mtime=${record.mtime} sha256=${record.sha256}`,
-			);
-			if (report.after) {
-				await this.log.line(
-					`verify (${mode}) ${record.vaultPath}: current size=${report.after.size} mtime=${report.after.mtime} sha256=${report.after.sha256}`,
-				);
+			let report = await checkWitnessRecord(this.app, record);
+			if (mode === 'automatic' && report.outcome === 'unchanged') {
+				// On the teardown-relaunch path the first read can precede
+				// Preview's write by under a second.
+				await this.logVerify(mode, record, report);
+				report = await this.recheckAfterDelay(record);
 			}
-			await this.log.line(`verify (${mode}) outcome: ${report.outcome}`);
-			new Notice(report.summary, 10000);
-			if (mode === 'automatic' && report.outcome === 'changed') {
+			await this.logVerify(mode, record, report);
+			if (mode === 'manual') {
+				new Notice(report.summary, 10000);
+				return;
+			}
+			if (report.outcome === 'changed') {
+				new Notice(report.summary, 10000);
+			}
+			// Identity guard: a handoff armed while this check was in
+			// flight must not be wiped by it.
+			if (this.witnessRecord === record) {
 				this.witnessRecord = null;
 				await this.savePluginData();
 			}
@@ -196,13 +210,47 @@ export default class EtchPlugin extends Plugin {
 		}
 	}
 
+	private async logVerify(
+		mode: 'manual' | 'automatic',
+		record: WitnessRecord,
+		report: WitnessReport,
+	): Promise<void> {
+		await this.log.line(
+			`verify (${mode}) ${record.vaultPath}: armed size=${record.size} mtime=${record.mtime} sha256=${record.sha256} armedAt=${new Date(record.armedAt).toISOString()}`,
+		);
+		if (report.after) {
+			await this.log.line(
+				`verify (${mode}) ${record.vaultPath}: current size=${report.after.size} mtime=${report.after.mtime} sha256=${report.after.sha256}`,
+			);
+		}
+		await this.log.line(`verify (${mode}) outcome: ${report.outcome}`);
+	}
+
+	private recheckAfterDelay(record: WitnessRecord): Promise<WitnessReport> {
+		return new Promise((resolve, reject) => {
+			this.registerInterval(
+				window.setTimeout(() => {
+					checkWitnessRecord(this.app, record).then(resolve, reject);
+				}, RECHECK_DELAY_MS),
+			);
+		});
+	}
+
 	async saveSettings(): Promise<void> {
 		await this.savePluginData();
 	}
 
 	private async loadPluginData(): Promise<void> {
 		const raw = (await this.loadData()) as Partial<EtchData> | null;
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, raw?.settings);
+		const settings: EtchSettings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			raw?.settings,
+		);
+		// data.json is hand-editable and syncs; never navigate on a route
+		// value this build does not know.
+		if (!isRouteId(settings.route)) settings.route = DEFAULT_SETTINGS.route;
+		this.settings = settings;
 		this.witnessRecord = raw?.witness ?? null;
 	}
 

@@ -8,7 +8,20 @@ import { armWitnessRecord, WitnessRecord } from './witness';
  * The three handoff routes. Selection is a setting, there is no automatic
  * fallback between routes, and a handoff fires exactly one navigation.
  */
-export type RouteId = 'file' | 'shareddocuments' | 'share-sheet';
+export const ROUTE_IDS = ['file', 'shareddocuments', 'share-sheet'] as const;
+
+export type RouteId = (typeof ROUTE_IDS)[number];
+
+/**
+ * The route value crosses a data boundary: data.json is hand-editable and
+ * syncs between devices. Both readers of that file guard with this.
+ */
+export function isRouteId(value: unknown): value is RouteId {
+	return (
+		typeof value === 'string' &&
+		(ROUTE_IDS as readonly string[]).includes(value)
+	);
+}
 
 export interface HandoffContext {
 	app: App;
@@ -38,17 +51,19 @@ export async function performHandoff(
 	const plan = await buildPlan(context, file);
 	if (!plan) return;
 
-	// Arm the witness and persist it before navigating: a successful handoff
-	// backgrounds Obsidian and may tear down the webview.
+	// Arm and persist the witness before the navigation fires; the webview
+	// may not survive the trip.
 	let record: WitnessRecord;
 	try {
 		record = await armWitnessRecord(app, file.path);
+		await context.arm(record);
 	} catch (error) {
-		new Notice('Could not read the file to arm verification. No handoff was made.');
+		new Notice(
+			'Could not record the handoff for verification. No handoff was made.',
+		);
 		await log.error(`witness arm failed for ${file.path}`, error);
 		return;
 	}
-	await context.arm(record);
 	await log.line(
 		`witness armed: ${record.vaultPath} size=${record.size} mtime=${record.mtime} sha256=${record.sha256}`,
 	);
@@ -64,7 +79,17 @@ async function buildPlan(
 	const { app, log, route } = context;
 
 	if (route === 'share-sheet') {
-		// Takes the vault-relative path; a resolver failure never blocks it.
+		// This route takes the vault-relative path, so resolution is not
+		// needed to navigate and a resolver failure never blocks it. The
+		// local-vault policy still applies when resolution does succeed.
+		const resolved = resolveAbsolutePath(app, file);
+		if (!resolved.ok && resolved.failure === 'non-local-vault') {
+			new Notice(resolved.message);
+			await log.error(
+				`non-local vault declined on share sheet for ${file.path}`,
+			);
+			return null;
+		}
 		const openWithDefaultApp = getOpenWithDefaultApp(app);
 		if (!openWithDefaultApp) {
 			new Notice(

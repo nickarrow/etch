@@ -5,7 +5,7 @@ import {
 	SettingDefinitionItem,
 } from 'obsidian';
 import type EtchPlugin from './main';
-import type { RouteId } from './routes';
+import { RouteId, isRouteId } from './routes';
 
 export interface EtchSettings {
 	route: RouteId;
@@ -80,7 +80,8 @@ export class EtchSettingTab extends PluginSettingTab {
 
 	async setControlValue(key: string, value: unknown): Promise<void> {
 		if (key === 'route') {
-			this.plugin.settings.route = value as RouteId;
+			if (!isRouteId(value)) return;
+			this.plugin.settings.route = value;
 		} else if (key === 'debugLogging') {
 			const enabled = value === true;
 			this.plugin.settings.debugLogging = enabled;
