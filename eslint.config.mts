@@ -6,6 +6,7 @@ export default defineConfig(
 	globalIgnores([
 		'node_modules',
 		'dist',
+		'docs',
 		'esbuild.config.mjs',
 		'version-bump.mjs',
 		'versions.json',
@@ -29,4 +30,15 @@ export default defineConfig(
 		},
 	},
 	...obsidianmd.configs.recommended,
+	{
+		rules: {
+			// UI copy names Apple products (Apple Pencil, Apple Preview) and
+			// the Verify last handoff command, so these words are capitalized
+			// mid-sentence on purpose.
+			'obsidianmd/ui/sentence-case': [
+				'warn',
+				{ ignoreWords: ['Apple', 'Pencil', 'Preview', 'Verify'] },
+			],
+		},
+	},
 );

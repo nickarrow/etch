@@ -1,38 +1,91 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
-import MyPlugin from './main';
+import {
+	App,
+	Platform,
+	PluginSettingTab,
+	SettingDefinitionItem,
+} from 'obsidian';
+import type EtchPlugin from './main';
+import type { RouteId } from './routes';
 
-export interface MyPluginSettings {
-	mySetting: string;
+export interface EtchSettings {
+	route: RouteId;
+	debugLogging: boolean;
 }
 
-export const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default',
+export const DEFAULT_SETTINGS: EtchSettings = {
+	route: 'file',
+	debugLogging: false,
 };
 
-export class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+export class EtchSettingTab extends PluginSettingTab {
+	plugin: EtchPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: EtchPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
-	display(): void {
-		const { containerEl } = this;
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [
+			{
+				name: '',
+				searchable: false,
+				visible: !(Platform.isIosApp && Platform.isTablet),
+				render: (setting) => {
+					setting.settingEl.addClass('etch-platform-note');
+					setting.setDesc(
+						'Etch requires an iPad. It opens vault PDFs in Apple Preview for Apple Pencil markup.',
+					);
+				},
+			},
+			{
+				name: 'Handoff route',
+				desc: createFragment((fragment) => {
+					fragment.createDiv({
+						text: 'Preview (default): opens the file directly in Preview.',
+					});
+					fragment.createDiv({
+						text: 'Files viewer: opens the file in Files, where Markup and Open in Preview are one tap each.',
+					});
+					fragment.createDiv({
+						text: 'Share sheet: opens the system share sheet; choose Preview there.',
+					});
+				}),
+				control: {
+					type: 'dropdown',
+					key: 'route',
+					defaultValue: DEFAULT_SETTINGS.route,
+					options: {
+						file: 'Preview (default)',
+						shareddocuments: 'Files viewer',
+						'share-sheet': 'Share sheet',
+					},
+				},
+			},
+			{
+				name: 'Debug logging',
+				desc: 'Write a verbose log to the plugin folder and enable the Verify last handoff command. When off, errors go to the console only.',
+				control: {
+					type: 'toggle',
+					key: 'debugLogging',
+					defaultValue: DEFAULT_SETTINGS.debugLogging,
+				},
+			},
+		];
+	}
 
-		containerEl.empty();
+	getControlValue(key: string): unknown {
+		return this.plugin.settings[key as keyof EtchSettings];
+	}
 
-		new Setting(containerEl)
-			.setName('Settings #1')
-			.setDesc("It's a secret")
-			.addText((text) =>
-				text
-					.setPlaceholder('Enter your secret')
-					.setValue(this.plugin.settings.mySetting)
-					.onChange(async (value) => {
-						this.plugin.settings.mySetting = value;
-						await this.plugin.saveSettings();
-					}),
-			);
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		if (key === 'route') {
+			this.plugin.settings.route = value as RouteId;
+		} else if (key === 'debugLogging') {
+			const enabled = value === true;
+			this.plugin.settings.debugLogging = enabled;
+			this.plugin.log.setEnabled(enabled);
+		}
+		await this.plugin.saveSettings();
 	}
 }
