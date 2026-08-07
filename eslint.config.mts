@@ -7,6 +7,9 @@ export default defineConfig(
 		'node_modules',
 		'dist',
 		'docs',
+		// Hidden folders hold local artifacts (test vault internals, tooling
+		// state), never lint targets.
+		'**/.*/**',
 		'esbuild.config.mjs',
 		'version-bump.mjs',
 		'versions.json',
