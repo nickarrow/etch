@@ -27,8 +27,18 @@ export type ResolveResult =
 	| { ok: false; failure: ResolveFailure; message: string };
 
 export function resolveAbsolutePath(app: App, file: TFile): ResolveResult {
-	const resourcePath = app.vault.getResourcePath(file);
+	return parseResourcePath(app.vault.getResourcePath(file), file.name);
+}
 
+/**
+ * The parser behind resolution, separated from Obsidian types so its edge
+ * cases stay testable: this is the fragile surface, and a shape change here
+ * must always fail closed.
+ */
+export function parseResourcePath(
+	resourcePath: string,
+	fileName: string,
+): ResolveResult {
 	const markerIndex = resourcePath.indexOf(CAPACITOR_FILE_MARKER);
 	if (markerIndex === -1) {
 		return {
@@ -66,11 +76,11 @@ export function resolveAbsolutePath(app: App, file: TFile): ResolveResult {
 	// filename. Segment equality rejects relative paths, file:// URLs, and a
 	// method that ignored its argument and returned a base directory.
 	const lastSegment = absolutePath.split('/').pop();
-	if (!absolutePath.startsWith('/') || lastSegment !== file.name) {
+	if (!absolutePath.startsWith('/') || lastSegment !== fileName) {
 		return {
 			ok: false,
 			failure: 'validation-failed',
-			message: `The resolved location does not point at ${file.name}. No handoff was made.`,
+			message: `The resolved location does not point at ${fileName}. No handoff was made.`,
 		};
 	}
 
