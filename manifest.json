@@ -1,11 +1,10 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
-	"version": "1.0.0",
-	"minAppVersion": "1.0.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"id": "etch",
+	"name": "Etch",
+	"version": "0.1.0",
+	"minAppVersion": "1.13.4",
+	"description": "Mark up PDFs with Apple Pencil in Apple Preview, saving changes into the same vault file.",
+	"author": "Nick Aretakis",
+	"authorUrl": "https://github.com/nickarrow",
 	"isDesktopOnly": false
 }
