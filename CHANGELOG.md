@@ -5,7 +5,7 @@ User-visible changes to Etch, one line per change, following
 versioning. Entries accumulate under Unreleased and move under a version
 heading at release; the same lines become the GitHub release notes.
 
-## Unreleased
+## 0.1.0 - 2026-08-08
 
 ### Added
 

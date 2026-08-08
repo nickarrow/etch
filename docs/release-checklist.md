@@ -29,4 +29,9 @@ Each run is recorded below: date, version, deviations if any.
 
 ## Runs
 
-None yet.
+### 0.1.0, 2026-08-08
+
+First release. Channel: pre-release. Deviation from step 2: no version bump.
+`manifest.json` already carried 0.1.0 from the initial commit, so the tag
+was created directly and `versions.json` already held its entry. The next
+release bumps normally.
