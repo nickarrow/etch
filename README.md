@@ -31,9 +31,9 @@ that later sessions can re-edit or erase.
 
 ## How it works
 
-Etch draws nothing and stores nothing. A tap resolves the file's absolute
-on-disk path from Obsidian's public API, validates it, percent-encodes it
-into a URL, and navigates exactly once; iPadOS then opens the document in
+Etch is only the bridge. A tap resolves the file's absolute on-disk path
+from Obsidian's public API, validates it, percent-encodes it into a URL,
+and navigates exactly once; iPadOS then opens the document in
 Preview (`file://`, the default route) or the Files viewer
 (`shareddocuments://`), and a third route raises the system share sheet
 through an internal Obsidian function. Two disclosures apply: how iPadOS
@@ -74,7 +74,9 @@ landed.
 
 Etch hands Preview the real vault file, and Preview rewrites it in place.
 Obsidian's File Recovery does not snapshot binary attachments, so keep your
-own backup of any PDF you cannot afford to lose. Etch itself only reads
+own backup of any PDF you cannot afford to lose. Your markup never lives in
+Etch: it is written into the file as ordinary PDF annotations, readable in
+any PDF app, so uninstalling Etch loses nothing. Etch itself only reads
 your files: verification hashes bytes, and its settings and debug log live
 in the plugin's own folder. Etch makes no network requests, which is
 verifiable in the source.
