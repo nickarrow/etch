@@ -1,20 +1,22 @@
 import { App, Notice, TFile } from 'obsidian';
 import { EtchLog } from './log';
-import { getNativePath, getOpenWithDefaultApp } from './native';
 import { resolveAbsolutePath } from './resolve';
 import { armWitnessRecord, WitnessRecord } from './witness';
 
 /**
- * The three handoff routes. Selection is a setting, there is no automatic
- * fallback between routes, and a handoff fires exactly one navigation.
+ * The two handoff routes, both plain web navigation. Selection is a
+ * setting, there is no automatic fallback between routes, and a handoff
+ * fires exactly one navigation.
  */
-export const ROUTE_IDS = ['file', 'shareddocuments', 'share-sheet'] as const;
+export const ROUTE_IDS = ['file', 'shareddocuments'] as const;
 
 export type RouteId = (typeof ROUTE_IDS)[number];
 
 /**
  * The route value crosses a data boundary: data.json is hand-editable and
- * syncs between devices. Both readers of that file guard with this.
+ * syncs between devices. Both readers of that file guard with this. A
+ * `share-sheet` value from a pre-0.1.0 install falls back to the default
+ * here, so no migration code is needed.
  */
 export function isRouteId(value: unknown): value is RouteId {
 	return (
@@ -78,34 +80,6 @@ async function buildPlan(
 ): Promise<HandoffPlan | null> {
 	const { app, log, route } = context;
 
-	if (route === 'share-sheet') {
-		// This route takes the vault-relative path, so resolution is not
-		// needed to navigate and a resolver failure never blocks it. The
-		// local-vault policy still applies when resolution does succeed.
-		const resolved = resolveAbsolutePath(app, file);
-		if (!resolved.ok && resolved.failure === 'non-local-vault') {
-			new Notice(resolved.message);
-			await log.error(
-				`non-local vault declined on share sheet for ${file.path}`,
-			);
-			return null;
-		}
-		const openWithDefaultApp = getOpenWithDefaultApp(app);
-		if (!openWithDefaultApp) {
-			new Notice(
-				'The share sheet is not reachable in this version of Obsidian. No handoff was made.',
-			);
-			await log.error('openWithDefaultApp is not reachable');
-			return null;
-		}
-		return {
-			description: `openWithDefaultApp("${file.path}")`,
-			navigate: () => {
-				openWithDefaultApp(file.path);
-			},
-		};
-	}
-
 	const resolved = resolveAbsolutePath(app, file);
 	if (!resolved.ok) {
 		new Notice(resolved.message);
@@ -114,12 +88,7 @@ async function buildPlan(
 		);
 		return null;
 	}
-	if (log.isEnabled()) {
-		await log.line(`resolved ${file.path} -> ${resolved.absolutePath}`);
-		await log.line(
-			`getNativePath cross-check: ${getNativePath(app, file.path) ?? 'unavailable'}`,
-		);
-	}
+	await log.line(`resolved ${file.path} -> ${resolved.absolutePath}`);
 
 	const encodedPath = encodePathSegments(resolved.absolutePath);
 	if (route === 'file') {

@@ -45,10 +45,7 @@ export class EtchSettingTab extends PluginSettingTab {
 						text: 'Preview (default): opens the file directly in Preview.',
 					});
 					fragment.createDiv({
-						text: 'Files viewer: opens the file in Files, where Markup and Open in Preview are one tap each.',
-					});
-					fragment.createDiv({
-						text: 'Share sheet: opens the system share sheet; choose Preview there.',
+						text: 'Files viewer: opens the file in Files, where Markup and Open in Preview are one tap each. Tap the check mark to save before returning.',
 					});
 				}),
 				control: {
@@ -58,7 +55,6 @@ export class EtchSettingTab extends PluginSettingTab {
 					options: {
 						file: 'Preview (default)',
 						shareddocuments: 'Files viewer',
-						'share-sheet': 'Share sheet',
 					},
 				},
 			},

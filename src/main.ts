@@ -30,10 +30,20 @@ function isIpad(): boolean {
 	return Platform.isIosApp && Platform.isTablet;
 }
 
+/** Render a rejected route value for the debug log. */
+function describeValue(value: unknown): string {
+	try {
+		return JSON.stringify(value) ?? String(value);
+	} catch {
+		return String(value);
+	}
+}
+
 export default class EtchPlugin extends Plugin {
 	settings!: EtchSettings;
 	log!: EtchLog;
 	private witnessRecord: WitnessRecord | null = null;
+	private rejectedRoute: string | null = null;
 
 	async onload() {
 		await this.loadPluginData();
@@ -106,6 +116,16 @@ export default class EtchPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			this.ensurePdfViewActions();
 		});
+
+		// Deferred so onload does no I/O of its own (engineering rule 10).
+		if (this.rejectedRoute !== null) {
+			const rejected = this.rejectedRoute;
+			this.app.workspace.onLayoutReady(() => {
+				void this.log.line(
+					`stored route ${rejected} is not a known route; using ${this.settings.route}`,
+				);
+			});
+		}
 
 		// Webview-teardown recovery: if a handoff is still armed from a
 		// previous session, check it once the workspace is ready.
@@ -248,8 +268,13 @@ export default class EtchPlugin extends Plugin {
 			raw?.settings,
 		);
 		// data.json is hand-editable and syncs; never navigate on a route
-		// value this build does not know.
-		if (!isRouteId(settings.route)) settings.route = DEFAULT_SETTINGS.route;
+		// value this build does not know. A `share-sheet` value from a
+		// pre-0.1.0 install lands here.
+		const storedRoute: unknown = settings.route;
+		if (!isRouteId(storedRoute)) {
+			this.rejectedRoute = describeValue(storedRoute);
+			settings.route = DEFAULT_SETTINGS.route;
+		}
 		this.settings = settings;
 		this.witnessRecord = raw?.witness ?? null;
 	}

@@ -38,10 +38,15 @@ describe('encodePathSegments', () => {
 });
 
 describe('isRouteId', () => {
-	it('accepts the three routes', () => {
+	it('accepts the two routes', () => {
 		expect(isRouteId('file')).toBe(true);
 		expect(isRouteId('shareddocuments')).toBe(true);
-		expect(isRouteId('share-sheet')).toBe(true);
+	});
+
+	it('rejects the removed share-sheet route', () => {
+		// A pre-0.1.0 data.json can still carry it; the guard is what makes
+		// it fall back to the default instead of navigating.
+		expect(isRouteId('share-sheet')).toBe(false);
 	});
 
 	it('rejects anything else', () => {
