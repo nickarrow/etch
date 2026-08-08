@@ -35,3 +35,12 @@ First release. Channel: pre-release. Deviation from step 2: no version bump.
 `manifest.json` already carried 0.1.0 from the initial commit, so the tag
 was created directly and `versions.json` already held its entry. The next
 release bumps normally.
+
+Second deviation: the 0.1.0 tag was moved. Its first push pointed at a
+commit whose `package-lock.json` could not be installed with `npm ci`, so
+step 3 produced a failed build workflow, no release workflow run, and no
+draft or assets. The tag was deleted and recreated on the fixed commit. The
+exception was taken on the grounds that nothing had consumed the tag: no
+release was ever published, and BRAT installs releases rather than tags.
+Once a tag has a published release behind it, it does not move, and a fix
+ships as the next patch version.
