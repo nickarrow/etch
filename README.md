@@ -32,17 +32,16 @@ that later sessions can re-edit or erase.
 ## How it works
 
 Etch is only the bridge. A tap resolves the file's absolute on-disk path
-from Obsidian's public API, validates it, percent-encodes it into a URL,
-and navigates exactly once; iPadOS then opens the document in
-Preview (`file://`, the default route) or the Files viewer
-(`shareddocuments://`), and a third route raises the system share sheet
-through an internal Obsidian function. Two disclosures apply: how iPadOS
-handles these URLs from an app webview is undocumented behavior with no API
-contract, and the share-sheet function is an undocumented Obsidian internal.
-If the OS or Obsidian ever changes any of this, Etch shows an error notice
-and stays put; it never navigates on a path it could not validate. In-place
-writes were established with hash-verified device evidence; see
-`docs/spike/FINDINGS.md`.
+from Obsidian's public API, validates it, percent-encodes it into a URL, and
+navigates exactly once; iPadOS then opens the document in Preview (`file://`,
+the default route) or in the Files viewer (`shareddocuments://`). Etch makes
+no internal Obsidian API calls: both routes are ordinary web navigation, and
+the path is parsed from what a public API returns. One disclosure applies:
+how iPadOS handles these URLs from an app webview is undocumented behavior
+with no API contract. If the OS or Obsidian ever changes any of this, Etch
+shows an error notice and stays put; it never navigates on a path it could
+not validate. In-place writes were established with hash-verified device
+evidence; see `docs/spike/FINDINGS.md`.
 
 ## Usage
 
@@ -62,9 +61,9 @@ landed.
 
 - Handoff route. "Preview (default)" opens the file directly in Preview.
   "Files viewer" opens it in Files, where Markup and Open in Preview are one
-  tap each. "Share sheet" raises the system share sheet; choose Preview
-  there. If the default route ever stops working after an OS update,
-  switching to Files viewer is the fallback.
+  tap each; tap the check mark there to save before returning. If the default
+  route ever stops working after an OS update, switching to Files viewer is
+  the fallback.
 - Debug logging. Writes a verbose log to the plugin folder and enables the
   "Verify last handoff" command, which re-hashes the last handed-off file
   and reports whether its content changed. When off, errors go to the
