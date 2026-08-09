@@ -9,8 +9,11 @@ import { isMarkupFile } from './formats';
 
 /**
  * Obsidian's own view types for the two file kinds this plugin acts on.
- * Neither id is exported by the API; both are stable and observed in use
- * (wave 1 device session for `pdf`).
+ * Neither id is exported by the API, so both are strings this plugin asserts:
+ * `pdf` carried the action through the wave 1 and wave 2 device sessions, and
+ * `image` is unverified until the wave 3 session. A wrong id costs the header
+ * action in that view and nothing else, since every other tap point is
+ * independent of it.
  */
 export const MARKUP_VIEW_TYPES = ['pdf', 'image'] as const;
 

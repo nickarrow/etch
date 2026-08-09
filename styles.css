@@ -2,3 +2,11 @@
 	color: var(--text-muted);
 	margin-bottom: var(--size-4-4);
 }
+
+/*
+The pencil button Etch adds to a file view carries .etch-view-action and no
+rule of its own on purpose. It is one of Obsidian's header buttons and
+inherits that size, and a size set here without a measurement on the device
+would fight the active theme. The class ships so the measurement has
+something to attach to.
+*/

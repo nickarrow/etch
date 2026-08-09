@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	REFRESH_PARAM,
 	applyRefreshToken,
+	buildToken,
 	isVaultResourceUrl,
 	nextImageSrc,
 	stripResourceQuery,
@@ -43,6 +44,30 @@ describe('stripResourceQuery', () => {
 	it('keeps an encoded question mark, which is part of the filename', () => {
 		const src = `${RESOURCE.replace('.png', '')}%3F.png`;
 		expect(stripResourceQuery(src)).toBe(src);
+	});
+
+	it('keeps an encoded hash, which is part of the filename', () => {
+		const src = RESOURCE.replace('Sheet%20Snapshot', 'sheet%231');
+		expect(stripResourceQuery(src)).toBe(src);
+	});
+});
+
+describe('buildToken', () => {
+	it('changes when only the counter moves', () => {
+		// The case the counter exists for: Preview has rewritten a file with
+		// size and mtime both frozen (spike session 5, run A), and a frozen
+		// token would render the cached bitmap again.
+		expect(buildToken(1786302622741, 1)).not.toBe(buildToken(1786302622741, 2));
+	});
+
+	it('holds still for the same change', () => {
+		// A token that moved on its own would make the webview re-read the
+		// file on every render.
+		expect(buildToken(1786302622741, 3)).toBe(buildToken(1786302622741, 3));
+	});
+
+	it('needs no encoding of its own', () => {
+		expect(buildToken(1786302622741, 4)).toBe('1786302622741.4');
 	});
 });
 

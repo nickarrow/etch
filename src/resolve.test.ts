@@ -30,6 +30,20 @@ describe('parseResourcePath', () => {
 		});
 	});
 
+	it('strips the refresh query this plugin adds to image srcs', () => {
+		// Nothing feeds a rendered img src to the resolver today. This pins
+		// the behavior for whoever wires the two together, since the embed
+		// work in wave 6 is the obvious place it would happen.
+		const result = parseResourcePath(
+			`${BASE}/Sheet.png?etch=1786302622741.4`,
+			'Sheet.png',
+		);
+		expect(result).toEqual({
+			ok: true,
+			absolutePath: `${CONTAINER}/Sheet.png`,
+		});
+	});
+
 	it('decodes an encoded # in the filename', () => {
 		const result = parseResourcePath(`${BASE}/sheet%231.pdf`, 'sheet#1.pdf');
 		expect(result).toEqual({

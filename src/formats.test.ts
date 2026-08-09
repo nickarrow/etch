@@ -3,8 +3,16 @@ import {
 	IMAGE_EXTENSIONS,
 	MARKUP_EXTENSIONS,
 	isImageExtension,
+	isImageFile,
 	isMarkupExtension,
+	isMarkupFile,
 } from './formats';
+
+// The file predicates ask for an extension and nothing else, so a literal
+// stands in for a file and this suite needs no obsidian stand-in at all.
+function fileWith(extension: string): { extension: string } {
+	return { extension };
+}
 
 describe('MARKUP_EXTENSIONS', () => {
 	it('carries pdf plus the image formats, pdf first', () => {
@@ -56,5 +64,24 @@ describe('isImageExtension', () => {
 
 	it('folds case', () => {
 		expect(isImageExtension('JPG')).toBe(true);
+	});
+});
+
+describe('the file predicates', () => {
+	it('read the extension Obsidian reports', () => {
+		for (const extension of ['pdf', 'PNG', 'jpeg']) {
+			expect(isMarkupFile(fileWith(extension))).toBe(true);
+		}
+		expect(isImageFile(fileWith('PNG'))).toBe(true);
+		expect(isImageFile(fileWith('pdf'))).toBe(false);
+	});
+
+	it('decline a name that only looks like a supported one', () => {
+		// Fullwidth and Cyrillic look-alikes: case folding cannot widen the
+		// set, because no non-ASCII codepoint folds into these letters.
+		for (const extension of ['', 'png ', 'md', 'ＰＮＧ', 'рng']) {
+			expect(isMarkupFile(fileWith(extension))).toBe(false);
+			expect(isImageFile(fileWith(extension))).toBe(false);
+		}
 	});
 });

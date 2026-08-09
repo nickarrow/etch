@@ -32,10 +32,14 @@ export default class EtchPlugin extends Plugin {
 	private witnessRecord: WitnessRecord | null = null;
 	private rejectedRoute: string | null = null;
 	private rejectedWitness = false;
+	private unloaded = false;
 	/** Serializes plugin-data writes; saveData replaces the whole file. */
 	private saveQueue: Promise<void> = Promise.resolve();
 
 	async onload() {
+		this.register(() => {
+			this.unloaded = true;
+		});
 		await this.loadPluginData();
 
 		const pluginDir =
@@ -113,11 +117,12 @@ export default class EtchPlugin extends Plugin {
 		this.registerEvent(
 			this.app.workspace.on('active-leaf-change', syncViewActions),
 		);
-		// An image view is reused for the next image opened in it, so the
-		// action has to be reconsidered when the file changes, not only when
-		// the layout does.
+		// An image view is reused for the next image opened in it, and a rename
+		// can change a file's format, so the action has to be reconsidered when
+		// the file changes, not only when the layout does.
 		this.registerEvent(this.app.workspace.on('file-open', syncViewActions));
-		this.app.workspace.onLayoutReady(syncViewActions);
+		this.registerEvent(this.app.vault.on('rename', syncViewActions));
+		this.whenReady(syncViewActions);
 
 		this.registerImageRefresh();
 
@@ -125,7 +130,7 @@ export default class EtchPlugin extends Plugin {
 		if (this.rejectedRoute !== null || this.rejectedWitness) {
 			const rejectedRoute = this.rejectedRoute;
 			const rejectedWitness = this.rejectedWitness;
-			this.app.workspace.onLayoutReady(() => {
+			this.whenReady(() => {
 				if (rejectedRoute !== null) {
 					void this.log.line(
 						`stored route ${rejectedRoute} is not a known route; using ${this.settings.route}`,
@@ -142,17 +147,33 @@ export default class EtchPlugin extends Plugin {
 		// Webview-teardown recovery: if a handoff is still armed from a
 		// previous session, check it once the workspace is ready.
 		if (this.witnessRecord) {
-			this.app.workspace.onLayoutReady(() => {
+			this.whenReady(() => {
 				void this.verifyLastHandoff('automatic');
 			});
 		}
 	}
 
 	/**
+	 * Deferred startup work, dropped if the plugin is gone by the time layout
+	 * is ready. A plugin loads before that point and `onLayoutReady` is a
+	 * workspace-owned queue with nothing to unsubscribe from, so a disable
+	 * inside that window would otherwise run teardown first and this work
+	 * second: buttons nothing will remove, and a log written by a plugin that
+	 * is no longer loaded.
+	 */
+	private whenReady(work: () => void): void {
+		this.app.workspace.onLayoutReady(() => {
+			if (this.unloaded) return;
+			work();
+		});
+	}
+
+	/**
 	 * PDF views refresh themselves after an external write; images do not, and
 	 * the fix has to sit in the render paths rather than run once per handoff
-	 * (spike session 6). Registration only, with the observer started from
-	 * onLayoutReady so onload still does no DOM work of its own.
+	 * (spike session 6). Registration only: the mutation observer behind it
+	 * starts with the first observed image change, so nothing here touches the
+	 * DOM at startup.
 	 */
 	private registerImageRefresh(): void {
 		if (!isIpad()) return;
@@ -168,9 +189,6 @@ export default class EtchPlugin extends Plugin {
 				if (file instanceof TFile) refresh.fileModified(file);
 			}),
 		);
-		this.app.workspace.onLayoutReady(() => {
-			refresh.startObserving(this.app.workspace.containerEl);
-		});
 	}
 
 	private activeMarkupFile(): TFile | null {
@@ -179,19 +197,36 @@ export default class EtchPlugin extends Plugin {
 		return file;
 	}
 
+	/**
+	 * The one way a handoff starts, so the format check lives here as well as
+	 * on the controls: a file can be renamed while a menu built for it is
+	 * still open. The catch is for the unexpected only. Everything the handoff
+	 * can be expected to fail at already reports for itself, so anything
+	 * arriving here would otherwise be an unhandled rejection with nothing on
+	 * screen and nothing in the log.
+	 */
 	private async markUp(file: TFile): Promise<void> {
-		await performHandoff(
-			{
-				app: this.app,
-				log: this.log,
-				route: this.settings.route,
-				arm: async (record) => {
-					this.witnessRecord = record;
-					await this.savePluginData();
+		if (!isMarkupFile(file)) {
+			await this.log.error(`${file.path} is not a format Etch hands off`);
+			return;
+		}
+		try {
+			await performHandoff(
+				{
+					app: this.app,
+					log: this.log,
+					route: this.settings.route,
+					arm: async (record) => {
+						this.witnessRecord = record;
+						await this.savePluginData();
+					},
 				},
-			},
-			file,
-		);
+				file,
+			);
+		} catch (error) {
+			new Notice('Etch could not complete the handoff.');
+			await this.log.error(`handoff failed for ${file.path}`, error);
+		}
 	}
 
 	/**

@@ -78,17 +78,17 @@ export function applyRefreshToken(src: string, token: string): string {
 }
 
 /**
- * The whole decision for one img, kept pure so the DOM walk stays trivial.
- * Null means leave this element alone: it is not a vault resource, no change
- * has been recorded for it, or it already carries the current token.
- */
-/**
  * Anything an img can be found in or be. Every DOM node with children is
  * both, and naming the intersection is what lets Obsidian's cross-window
  * `instanceOf` check be used on it.
  */
 type RefreshRoot = Node & ParentNode;
 
+/**
+ * The whole decision for one img, kept pure so the DOM walk stays trivial.
+ * Null means leave this element alone: it is not a vault resource, no change
+ * has been recorded for it, or it already carries the current token.
+ */
 export function nextImageSrc(
 	src: string,
 	tokens: ReadonlyMap<string, string>,
@@ -106,11 +106,11 @@ export function nextImageSrc(
  * moved for no reason makes the webview re-read the file on every render.
  *
  * mtime alone cannot carry it. Preview has been observed rewriting a file
- * with size and mtime both frozen (spike session 5, run A), so the counter is
- * what guarantees a new URL for a change the metadata hides. mtime stays in
- * the token because it makes a debug log line self-explanatory.
+ * with size and mtime both frozen (spike session 5, run A), so the generation
+ * counter is what guarantees a new URL for a change the metadata hides. mtime
+ * stays in the token because it makes a debug log line self-explanatory.
  */
-function buildToken(mtime: number, generation: number): string {
+export function buildToken(mtime: number, generation: number): string {
 	return `${mtime}.${generation}`;
 }
 
@@ -127,10 +127,12 @@ function collectImages(root: RefreshRoot): HTMLImageElement[] {
 
 /**
  * Obsidian sets the attribute, so the attribute is what is compared: reading
- * the src property would hand back a URL the browser has re-serialized.
+ * the src property would hand back a URL the browser has re-serialized. An
+ * img with no attribute yet is left to the mutation record that will report
+ * the attribute being set.
  */
 function readSrc(img: HTMLImageElement): string {
-	return img.getAttribute('src') ?? img.src;
+	return img.getAttribute('src') ?? '';
 }
 
 export class ImageRefresh {
@@ -150,10 +152,24 @@ export class ImageRefresh {
 
 	/**
 	 * Applies the current tokens to whatever has just been rendered. Called
-	 * from the reading-mode post-processor, from the mutation observer that
-	 * covers live preview and the image view, and after a recorded change.
+	 * from the reading-mode post-processor and from the mutation observer that
+	 * covers live preview and the image view. The first render-time bump after
+	 * each recorded change writes one log line: live preview rebuilds widgets
+	 * constantly, so a line per render would bury the log, and one line is
+	 * enough to tell a render-time bump from a missing one.
 	 */
 	applyTo(root: RefreshRoot): number {
+		const bumped = this.apply(root);
+		if (bumped > 0 && this.reportedGeneration !== this.generation) {
+			this.reportedGeneration = this.generation;
+			void this.log.line(
+				`image refresh: ${bumped} newly rendered img(s) took the current query`,
+			);
+		}
+		return bumped;
+	}
+
+	private apply(root: RefreshRoot): number {
 		if (this.tokens.size === 0) return 0;
 		let bumped = 0;
 		for (const img of collectImages(root)) {
@@ -161,15 +177,6 @@ export class ImageRefresh {
 			if (next === null) continue;
 			img.setAttribute('src', next);
 			bumped += 1;
-		}
-		// Live preview rebuilds widgets constantly, so a line per render would
-		// bury the log. One line per recorded change is enough to tell a
-		// render-time bump from a missing one.
-		if (bumped > 0 && this.reportedGeneration !== this.generation) {
-			this.reportedGeneration = this.generation;
-			void this.log.line(
-				`image refresh: ${bumped} newly rendered img(s) took the current query`,
-			);
 		}
 		return bumped;
 	}
@@ -193,12 +200,19 @@ export class ImageRefresh {
 	/**
 	 * Live preview re-creates embed widgets constantly and the image view
 	 * builds its own img, so neither is reachable from a markdown
-	 * post-processor. Watching the workspace for img elements covers both
-	 * without touching how either one renders. The observer is inert until a
-	 * change has been recorded: with no tokens there is nothing to rewrite,
-	 * and the callback returns on its first line.
+	 * post-processor. Watching for img elements covers both without touching
+	 * how either one renders.
+	 *
+	 * Observation starts with the first recorded change rather than at
+	 * startup, so a session that marks up nothing pays nothing: with no
+	 * tokens there is nothing to rewrite, and the engine is not asked to
+	 * report mutations that would all be discarded.
+	 *
+	 * The root is the document body rather than the workspace container,
+	 * because Obsidian mounts hover previews and modals outside that
+	 * container and an image can render in one.
 	 */
-	startObserving(root: HTMLElement): void {
+	private ensureObserving(): void {
 		if (this.observer) return;
 		const observer = new MutationObserver((records) => {
 			if (this.tokens.size === 0) return;
@@ -214,7 +228,7 @@ export class ImageRefresh {
 				}
 			}
 		});
-		observer.observe(root, {
+		observer.observe(document.body, {
 			subtree: true,
 			childList: true,
 			attributes: true,
@@ -234,20 +248,27 @@ export class ImageRefresh {
 		this.tokens.clear();
 	}
 
+	/**
+	 * Records what changed and refreshes what is on screen already. The URL is
+	 * logged with the token because it is the one thing a mismatch would show:
+	 * a key that does not equal the src Obsidian rendered produces a bump
+	 * count of zero, which reads the same as nothing being open.
+	 */
 	private flush(): void {
 		const files = Array.from(this.pending.values());
 		this.pending.clear();
 		for (const file of files) {
 			this.generation += 1;
 			const key = stripResourceQuery(this.app.vault.getResourcePath(file));
-			this.tokens.set(key, buildToken(file.stat.mtime, this.generation));
+			const token = buildToken(file.stat.mtime, this.generation);
+			this.tokens.set(key, token);
 			void this.log.line(
-				`image changed: ${file.path} size=${file.stat.size} mtime=${file.stat.mtime}`,
+				`image changed: ${file.path} size=${file.stat.size} mtime=${file.stat.mtime} token=${token} url=${key}`,
 			);
 		}
-		// This path reports for itself, so applyTo stays quiet below.
-		this.reportedGeneration = this.generation;
-		const bumped = this.applyTo(document);
+		this.ensureObserving();
+		// Quiet, because this path reports its own count on the next line.
+		const bumped = this.apply(document);
 		void this.log.line(
 			`image refresh: bumped ${bumped} rendered img(s) after the change`,
 		);

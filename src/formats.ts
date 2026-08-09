@@ -38,10 +38,14 @@ export function isMarkupExtension(extension: string): boolean {
 	);
 }
 
-export function isMarkupFile(file: TFile): boolean {
+/**
+ * The extension is all these predicates read, and asking for no more than
+ * that is what lets the tests hand them a literal instead of a file.
+ */
+export function isMarkupFile(file: Pick<TFile, 'extension'>): boolean {
 	return isMarkupExtension(file.extension);
 }
 
-export function isImageFile(file: TFile): boolean {
+export function isImageFile(file: Pick<TFile, 'extension'>): boolean {
 	return isImageExtension(file.extension);
 }

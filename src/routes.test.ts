@@ -31,7 +31,20 @@ describe('encodePathSegments', () => {
 	it('inverts the parser for hostile names', () => {
 		const container =
 			'/var/mobile/Containers/Data/Application/AAAA/Documents/vault';
-		for (const name of ['a b.pdf', 'sheet#1.pdf', 'sheet50%.pdf']) {
+		for (const name of [
+			'a b.pdf',
+			'sheet#1.pdf',
+			'sheet50%.pdf',
+			// Image names, since wave 3 hands off images as well. The last two
+			// are a Mac-created decomposed accent and an emoji; the deeper
+			// filename matrix is wave 7 work, these two are here because the
+			// encoding is shared with the refresh path.
+			'a+b.png',
+			'a&b=c.jpg',
+			'SHEET.JPEG',
+			'cafe\u0301.png',
+			'🎲 sheet.jpg',
+		]) {
 			const path = `${container}/${name}`;
 			const resourcePath = `capacitor://localhost/_capacitor_file_${encodePathSegments(path)}`;
 			expect(parseResourcePath(resourcePath, name)).toEqual({
