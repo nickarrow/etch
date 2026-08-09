@@ -7,6 +7,14 @@ heading at release; the same lines become the GitHub release notes.
 
 ## Unreleased
 
+### Added
+
+- Images can be marked up the same way as PDFs: PNG, JPG, and JPEG files.
+- The pencil icon now appears on an open image, and the file menu offers
+  markup for supported images.
+- A marked-up image now shows its new ink without restarting Obsidian, in
+  notes and in the image view.
+
 ### Changed
 
 - A handoff now goes ahead when verification cannot be armed, with a notice,

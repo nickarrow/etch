@@ -1,10 +1,10 @@
 # Etch
 
-Native Apple Pencil markup for Obsidian PDFs.
+Native Apple Pencil markup for Obsidian PDFs and images.
 
-One tap opens a vault PDF in Apple Preview. Draw with the Pencil, switch
-back, and the ink is in the same vault file: visible everywhere the PDF
-appears, and it travels with the file when it syncs or moves.
+One tap opens a vault PDF or image in Apple Preview. Draw with the Pencil,
+switch back, and the ink is in the same vault file: visible everywhere the
+file appears, and it travels with the file when it syncs or moves.
 
 ## Limitations
 
@@ -17,11 +17,14 @@ appears, and it travels with the file when it syncs or moves.
   Drive vaults, are declined with a notice.
 - Apple Preview must be installed; iPadOS allows deleting it, per Apple's
   documentation. What happens if Preview is absent is unverified.
-- PDFs only in this release. Image support is planned.
-- The command works on an open PDF, so the mobile toolbar is not a usable
+- PDF, PNG, JPG, and JPEG files. Other formats, including SVG, are left
+  alone: Etch offers markup only for formats a device round trip has covered,
+  and SVG is excluded for good, since it is text and what a markup tool
+  writes back into one is unverified.
+- The command works on an open file, so the mobile toolbar is not a usable
   place for it: Obsidian 1.13.4 does not show that toolbar over a PDF view.
   Use the pencil icon, the file menu, or the command palette.
-- Buttons on embedded PDFs inside a note are not in this release.
+- Buttons on files embedded inside a note are not in this release.
 - On the Files viewer route, markup saves when you tap its check mark.
   Leaving Files without that tap leaves the file unchanged until you return
   and tap it (observed on iPadOS 26.5.2 with Obsidian 1.13.4).
@@ -33,7 +36,10 @@ webview is the boundary: PencilKit, the ink framework behind Apple's own
 apps, is native UIKit, and no plugin can ship it. Etch gets PencilKit by
 handing the file to the app that has it. Obsidian keeps the vault, Preview
 brings the Pencil, and the markup lands in the PDF as ordinary annotations
-that later sessions can re-edit or erase.
+that later sessions can re-edit or erase. Strokes on an image were also
+re-editable in a later session on iPadOS 26.5.2, which is an observation
+rather than a promise: how Preview stores them is unverified, and Etch does
+not depend on it.
 
 ## How it works
 
@@ -53,13 +59,17 @@ evidence; see `docs/spike/FINDINGS.md`.
 
 Three ways to start, all equivalent:
 
-- tap the pencil icon on an open PDF view,
-- choose "Mark up with Pencil" from a PDF's long-press menu,
+- tap the pencil icon on an open PDF or image,
+- choose "Mark up with Pencil" from the file's long-press menu,
 - run the "Mark up with Pencil" command from the command palette.
 
 Draw with the Pencil, switch back to Obsidian, and the PDF view and any
 embeds of it refresh on their own (observed on iPadOS 26.5.2 with Obsidian
-1.13.4; see `docs/spike/FINDINGS.md`). If Obsidian restarts while you are
+1.13.4; see `docs/spike/FINDINGS.md`). Images need help with that: Obsidian
+keeps serving the picture it already cached, so Etch gives a changed image a
+fresh address wherever it is drawn, which brings the new ink into view
+without restarting the app (mechanism established on iPadOS 26.5.2; see
+session 6 in `docs/spike/FINDINGS.md`). If Obsidian restarts while you are
 away, Etch re-checks the file on the next launch and shows a notice if the
 markup landed.
 
@@ -74,16 +84,18 @@ markup landed.
   "Verify last handoff" command, which re-hashes the last handed-off file
   and reports whether its content changed. When off, errors go to the
   console only. Verification reads the whole file to hash it, so on a very
-  large PDF it can be unavailable; the handoff still happens, and a notice
+  large file it can be unavailable; the handoff still happens, and a notice
   says the check was skipped.
 
 ## Data safety
 
 Etch hands Preview the real vault file, and Preview rewrites it in place.
 Obsidian's File Recovery does not snapshot binary attachments, so keep your
-own backup of any PDF you cannot afford to lose. Your markup never lives in
-Etch: it is written into the file as ordinary PDF annotations, readable in
-any PDF app, so uninstalling Etch loses nothing. Etch itself only reads
+own backup of any file you cannot afford to lose. This matters more for an
+image than for a PDF: PDF ink arrives as annotation objects a later session
+can erase, while an image comes back as a new picture. Your markup never
+lives in Etch: it is written into the file itself, readable in any app that
+opens that format, so uninstalling Etch loses nothing. Etch itself only reads
 your files: verification hashes bytes, and its settings and debug log live
 in the plugin's own folder. Etch makes no network requests, which is
 verifiable in the source.
