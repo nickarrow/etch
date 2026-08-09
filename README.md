@@ -16,6 +16,10 @@ appears, and it travels with the file when it syncs or moves.
   Drive vaults, are declined with a notice.
 - Apple Preview must be installed. iPadOS allows deleting it.
 - PDFs only in this release. Image support is planned.
+- The command works on an open PDF, so the mobile toolbar is not a usable
+  place for it: Obsidian does not show that toolbar over a PDF view. Use the
+  pencil icon, the file menu, or the command palette.
+- Buttons on embedded PDFs inside a note are not in this release.
 - On the Files viewer route, markup saves when you tap its check mark.
   Leaving Files without that tap leaves the file unchanged until you return
   and tap it.
@@ -49,8 +53,7 @@ Three ways to start, all equivalent:
 
 - tap the pencil icon on an open PDF view,
 - choose "Mark up with Pencil" from a PDF's long-press menu,
-- run the "Mark up with Pencil" command from the palette, which can also be
-  placed on the mobile toolbar.
+- run the "Mark up with Pencil" command from the command palette.
 
 Draw with the Pencil, switch back to Obsidian, and the PDF view and any
 embeds of it refresh on their own. If Obsidian restarts while you are away,
