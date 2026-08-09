@@ -5,6 +5,23 @@ User-visible changes to Etch, one line per change, following
 versioning. Entries accumulate under Unreleased and move under a version
 heading at release; the same lines become the GitHub release notes.
 
+## Unreleased
+
+### Changed
+
+- A handoff now goes ahead when verification cannot be armed, with a notice,
+  instead of being refused. Hashing a very large PDF was the likeliest way
+  to lose the handoff to a debug-only feature.
+
+### Fixed
+
+- A debug log line that fails to write now raises a notice instead of
+  failing silently, so an incomplete log cannot read as a complete one.
+- A settings file carrying an unexpected value no longer leaves the plugin
+  reporting the same verification error on every launch.
+- Disabling Etch moments after it starts no longer leaves a verification
+  check waiting forever.
+
 ## 0.1.0 - 2026-08-08
 
 ### Added

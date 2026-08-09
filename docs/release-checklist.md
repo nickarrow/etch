@@ -2,16 +2,17 @@
 
 Steps for every release, in order.
 
-1. `npm run lint` and `npm run build` are clean locally.
+1. `npm run lint`, `npm test`, and `npm run build` are clean locally. CI runs
+   all three, so a miss here only moves the failure later.
 2. Move CHANGELOG.md's Unreleased entries under a heading for the new
    version, dated, and commit. Then bump: `npm version patch|minor|major`.
    Exception, first release only: the manifest already carries 0.1.0, so
    skip the bump and tag directly (`git tag 0.1.0`); record the deviation
    under Runs.
-   This runs `version-bump.mjs`, which syncs `manifest.json`,
-   `package.json`, and `versions.json`. The committed `.npmrc` keeps the
-   git tag bare, so the tag matches the manifest version exactly, with no
-   `v` prefix.
+   `npm version` writes `package.json` itself and then runs
+   `version-bump.mjs`, which syncs `manifest.json` and `versions.json`. The
+   committed `.npmrc` keeps the git tag bare, so the tag matches the
+   manifest version exactly, with no `v` prefix.
 3. Push the commit and the tag. The release workflow builds `main.js`,
    generates build-provenance attestation over `main.js` and `styles.css`,
    and creates a draft release with `main.js`, `manifest.json`, and

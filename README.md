@@ -10,19 +10,21 @@ appears, and it travels with the file when it syncs or moves.
 
 - iPad only. On iPhone and desktop the plugin loads inert and its commands
   stay hidden.
-- Requires iPadOS 26 or later and Obsidian 1.13.4 or later. Tested on
-  iPadOS 26.5.2 with Obsidian 1.13.4.
+- Requires iPadOS 26 and Obsidian 1.13.4 or later. Tested on iPadOS 26.5.2
+  with Obsidian 1.13.4. Etch rests on undocumented iPadOS behavior, so each
+  new iPadOS major is unverified until it has been re-checked.
 - Local vaults only ("On My iPad"). Files anywhere else, including iCloud
   Drive vaults, are declined with a notice.
-- Apple Preview must be installed. iPadOS allows deleting it.
+- Apple Preview must be installed; iPadOS allows deleting it, per Apple's
+  documentation. What happens if Preview is absent is unverified.
 - PDFs only in this release. Image support is planned.
 - The command works on an open PDF, so the mobile toolbar is not a usable
-  place for it: Obsidian does not show that toolbar over a PDF view. Use the
-  pencil icon, the file menu, or the command palette.
+  place for it: Obsidian 1.13.4 does not show that toolbar over a PDF view.
+  Use the pencil icon, the file menu, or the command palette.
 - Buttons on embedded PDFs inside a note are not in this release.
 - On the Files viewer route, markup saves when you tap its check mark.
   Leaving Files without that tap leaves the file unchanged until you return
-  and tap it.
+  and tap it (observed on iPadOS 26.5.2 with Obsidian 1.13.4).
 
 ## Why a handoff
 
@@ -56,9 +58,10 @@ Three ways to start, all equivalent:
 - run the "Mark up with Pencil" command from the command palette.
 
 Draw with the Pencil, switch back to Obsidian, and the PDF view and any
-embeds of it refresh on their own. If Obsidian restarts while you are away,
-Etch re-checks the file on the next launch and shows a notice if the markup
-landed.
+embeds of it refresh on their own (observed on iPadOS 26.5.2 with Obsidian
+1.13.4; see `docs/spike/FINDINGS.md`). If Obsidian restarts while you are
+away, Etch re-checks the file on the next launch and shows a notice if the
+markup landed.
 
 ## Settings
 
@@ -70,7 +73,9 @@ landed.
 - Debug logging. Writes a verbose log to the plugin folder and enables the
   "Verify last handoff" command, which re-hashes the last handed-off file
   and reports whether its content changed. When off, errors go to the
-  console only.
+  console only. Verification reads the whole file to hash it, so on a very
+  large PDF it can be unavailable; the handoff still happens, and a notice
+  says the check was skipped.
 
 ## Data safety
 
@@ -88,7 +93,8 @@ verifiable in the source.
 Etch is not yet in the community plugin directory. Until it is listed:
 
 - BRAT: install the BRAT community plugin and add `nickarrow/etch` as a
-  beta plugin. BRAT installs the latest published release or pre-release.
+  beta plugin. BRAT installs the highest version published, release or
+  pre-release.
 - Manual: copy `main.js`, `manifest.json`, and `styles.css` from a release
   into `<vault>/.obsidian/plugins/etch/`, then enable Etch under community
   plugins.
