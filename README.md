@@ -17,10 +17,10 @@ file appears, and it travels with the file when it syncs or moves.
   Drive vaults, are declined with a notice.
 - Apple Preview must be installed; iPadOS allows deleting it, per Apple's
   documentation. What happens if Preview is absent is unverified.
-- PDF, PNG, JPG, and JPEG files. Other formats, including SVG, are left
-  alone: Etch offers markup only for formats a device round trip has covered,
-  and SVG is excluded for good, since it is text and what a markup tool
-  writes back into one is unverified.
+- PDF, PNG, JPG, and JPEG files. Other formats are left alone. HEIC, TIFF,
+  and GIF are candidates waiting on a device round trip. SVG is excluded for
+  good, since it is text and what a markup tool writes back into one is
+  unverified.
 - The command works on an open file, so the mobile toolbar is not a usable
   place for it: Obsidian 1.13.4 does not show that toolbar over a PDF view.
   Use the pencil icon, the file menu, or the command palette.

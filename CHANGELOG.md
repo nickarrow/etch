@@ -18,13 +18,16 @@ heading at release; the same lines become the GitHub release notes.
 ### Changed
 
 - A handoff now goes ahead when verification cannot be armed, with a notice,
-  instead of being refused. Hashing a very large PDF was the likeliest way
+  instead of being refused. Hashing a very large file was the likeliest way
   to lose the handoff to a debug-only feature.
 
 ### Fixed
 
 - A debug log line that fails to write now raises a notice instead of
   failing silently, so an incomplete log cannot read as a complete one.
+- A debug logging value that is not a true or false setting now reads as
+  off, instead of switching logging on.
+- The pencil button on a file view now carries an explicit accessible name.
 - A settings file carrying an unexpected value no longer leaves the plugin
   reporting the same verification error on every launch.
 - Disabling Etch moments after it starts no longer leaves a verification
