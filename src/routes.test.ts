@@ -6,7 +6,12 @@ vi.mock('obsidian', () => ({
 	Notice: class {},
 }));
 
-import { encodePathSegments, isRouteId } from './routes';
+import {
+	ROUTE_LABELS,
+	buildHandoffTarget,
+	encodePathSegments,
+	isRouteId,
+} from './routes';
 import { parseResourcePath } from './resolve';
 
 describe('encodePathSegments', () => {
@@ -53,5 +58,53 @@ describe('isRouteId', () => {
 		for (const value of ['File', '', 'preview', 3, null, undefined, {}]) {
 			expect(isRouteId(value)).toBe(false);
 		}
+	});
+});
+
+describe('buildHandoffTarget', () => {
+	const encoded = '/var/mobile/Documents/v/Kal-Arath%20Sheet.pdf';
+
+	it('builds the file scheme and opens it', () => {
+		expect(buildHandoffTarget('file', encoded)).toEqual({
+			url: `file://${encoded}`,
+			kind: 'open',
+			description: `window.open("file://${encoded}")`,
+		});
+	});
+
+	it('builds the shareddocuments scheme and assigns it', () => {
+		expect(buildHandoffTarget('shareddocuments', encoded)).toEqual({
+			url: `shareddocuments://${encoded}`,
+			kind: 'assign',
+			description: `window.location.href = "shareddocuments://${encoded}"`,
+		});
+	});
+
+	it('gives both schemes three slashes before an absolute path', () => {
+		// file:///var/... not file://var/...: the empty authority matters.
+		expect(buildHandoffTarget('file', '/var/x.pdf').url).toBe(
+			'file:///var/x.pdf',
+		);
+		expect(buildHandoffTarget('shareddocuments', '/var/x.pdf').url).toBe(
+			'shareddocuments:///var/x.pdf',
+		);
+	});
+
+	it('passes the encoded path through untouched', () => {
+		const hostile = encodePathSegments('/v/sheet#1 50%.pdf');
+		for (const route of ['file', 'shareddocuments'] as const) {
+			expect(buildHandoffTarget(route, hostile).url).toContain(
+				'sheet%231%2050%25.pdf',
+			);
+		}
+	});
+});
+
+describe('ROUTE_LABELS', () => {
+	it('labels both routes with the default first', () => {
+		expect(Object.entries(ROUTE_LABELS)).toEqual([
+			['file', 'Preview (default)'],
+			['shareddocuments', 'Files viewer'],
+		]);
 	});
 });
