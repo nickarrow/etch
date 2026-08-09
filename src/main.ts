@@ -1,12 +1,8 @@
-import {
-	FileView,
-	Notice,
-	Platform,
-	Plugin,
-	TFile,
-	normalizePath,
-} from 'obsidian';
+import { Notice, Platform, Plugin, TFile, normalizePath } from 'obsidian';
+import { ViewActions } from './actions';
+import { isMarkupFile } from './formats';
 import { EtchLog, describeError } from './log';
+import { ImageRefresh } from './refresh';
 import { isRouteId, performHandoff } from './routes';
 import { DEFAULT_SETTINGS, EtchSettings, EtchSettingTab } from './settings';
 import {
@@ -23,8 +19,6 @@ interface EtchData {
 
 const MARK_UP_NAME = 'Mark up with Pencil';
 const MARK_UP_ICON = 'pencil';
-const PDF_VIEW_TYPE = 'pdf';
-const VIEW_ACTION_CLASS = 'etch-view-action';
 const RECHECK_DELAY_MS = 3000;
 
 function isIpad(): boolean {
@@ -34,6 +28,7 @@ function isIpad(): boolean {
 export default class EtchPlugin extends Plugin {
 	settings!: EtchSettings;
 	log!: EtchLog;
+	private viewActions!: ViewActions;
 	private witnessRecord: WitnessRecord | null = null;
 	private rejectedRoute: string | null = null;
 	private rejectedWitness = false;
@@ -66,7 +61,7 @@ export default class EtchPlugin extends Plugin {
 			icon: MARK_UP_ICON,
 			checkCallback: (checking) => {
 				if (!isIpad()) return false;
-				const file = this.activePdf();
+				const file = this.activeMarkupFile();
 				if (!file) return false;
 				if (!checking) void this.markUp(file);
 				return true;
@@ -85,11 +80,7 @@ export default class EtchPlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.workspace.on('file-menu', (menu, file) => {
-				if (
-					!isIpad() ||
-					!(file instanceof TFile) ||
-					file.extension.toLowerCase() !== 'pdf'
-				) {
+				if (!isIpad() || !(file instanceof TFile) || !isMarkupFile(file)) {
 					return;
 				}
 				menu.addItem((item) =>
@@ -104,19 +95,31 @@ export default class EtchPlugin extends Plugin {
 			}),
 		);
 
-		this.registerEvent(
-			this.app.workspace.on('layout-change', () => {
-				this.ensurePdfViewActions();
-			}),
+		this.viewActions = new ViewActions(
+			this.app,
+			MARK_UP_ICON,
+			MARK_UP_NAME,
+			(file) => {
+				void this.markUp(file);
+			},
 		);
-		this.registerEvent(
-			this.app.workspace.on('active-leaf-change', () => {
-				this.ensurePdfViewActions();
-			}),
-		);
-		this.app.workspace.onLayoutReady(() => {
-			this.ensurePdfViewActions();
+		this.register(() => {
+			this.viewActions.dispose();
 		});
+		const syncViewActions = () => {
+			if (isIpad()) this.viewActions.sync();
+		};
+		this.registerEvent(this.app.workspace.on('layout-change', syncViewActions));
+		this.registerEvent(
+			this.app.workspace.on('active-leaf-change', syncViewActions),
+		);
+		// An image view is reused for the next image opened in it, so the
+		// action has to be reconsidered when the file changes, not only when
+		// the layout does.
+		this.registerEvent(this.app.workspace.on('file-open', syncViewActions));
+		this.app.workspace.onLayoutReady(syncViewActions);
+
+		this.registerImageRefresh();
 
 		// Deferred so onload does no I/O of its own (engineering rule 10).
 		if (this.rejectedRoute !== null || this.rejectedWitness) {
@@ -145,43 +148,34 @@ export default class EtchPlugin extends Plugin {
 		}
 	}
 
-	onunload(): void {
-		for (const leaf of this.app.workspace.getLeavesOfType(PDF_VIEW_TYPE)) {
-			for (const el of Array.from(
-				leaf.view.containerEl.querySelectorAll(`.${VIEW_ACTION_CLASS}`),
-			)) {
-				el.remove();
-			}
-		}
-	}
-
 	/**
-	 * One pencil action per open PDF view, each bound to its own view's
-	 * file. Presence is checked in the DOM, so a rebuilt header heals itself
-	 * on the next workspace event. The click closure holds its view and
-	 * reads `view.file` at click time, so a file swap inside the same view
-	 * is handled; the element dies with the view, so the lifetimes match.
+	 * PDF views refresh themselves after an external write; images do not, and
+	 * the fix has to sit in the render paths rather than run once per handoff
+	 * (spike session 6). Registration only, with the observer started from
+	 * onLayoutReady so onload still does no DOM work of its own.
 	 */
-	private ensurePdfViewActions(): void {
+	private registerImageRefresh(): void {
 		if (!isIpad()) return;
-		for (const leaf of this.app.workspace.getLeavesOfType(PDF_VIEW_TYPE)) {
-			const view = leaf.view;
-			if (!(view instanceof FileView)) continue;
-			if (view.containerEl.querySelector(`.${VIEW_ACTION_CLASS}`)) continue;
-			const actionEl = view.addAction(MARK_UP_ICON, MARK_UP_NAME, () => {
-				if (view.file) void this.markUp(view.file);
-			});
-			actionEl.addClass(VIEW_ACTION_CLASS);
-			// Obsidian labels its own header actions; setting it here makes
-			// the accessible name this plugin's responsibility, not an
-			// assumption about Obsidian's internals (engineering rule 10).
-			actionEl.setAttribute('aria-label', MARK_UP_NAME);
-		}
+		const refresh = new ImageRefresh(this.app, this.log);
+		this.register(() => {
+			refresh.dispose();
+		});
+		this.registerMarkdownPostProcessor((el) => {
+			refresh.applyTo(el);
+		});
+		this.registerEvent(
+			this.app.vault.on('modify', (file) => {
+				if (file instanceof TFile) refresh.fileModified(file);
+			}),
+		);
+		this.app.workspace.onLayoutReady(() => {
+			refresh.startObserving(this.app.workspace.containerEl);
+		});
 	}
 
-	private activePdf(): TFile | null {
+	private activeMarkupFile(): TFile | null {
 		const file = this.app.workspace.getActiveFile();
-		if (!file || file.extension.toLowerCase() !== 'pdf') return null;
+		if (!file || !isMarkupFile(file)) return null;
 		return file;
 	}
 
