@@ -5,7 +5,7 @@ import {
 	SettingDefinitionItem,
 } from 'obsidian';
 import type EtchPlugin from './main';
-import { RouteId, isRouteId } from './routes';
+import { ROUTE_LABELS, RouteId, isRouteId } from './routes';
 
 export interface EtchSettings {
 	route: RouteId;
@@ -52,10 +52,7 @@ export class EtchSettingTab extends PluginSettingTab {
 					type: 'dropdown',
 					key: 'route',
 					defaultValue: DEFAULT_SETTINGS.route,
-					options: {
-						file: 'Preview (default)',
-						shareddocuments: 'Files viewer',
-					},
+					options: ROUTE_LABELS,
 				},
 			},
 			{
@@ -82,6 +79,9 @@ export class EtchSettingTab extends PluginSettingTab {
 			const enabled = value === true;
 			this.plugin.settings.debugLogging = enabled;
 			this.plugin.log.setEnabled(enabled);
+		} else {
+			// An unknown key means nothing changed; do not write data.json.
+			return;
 		}
 		await this.plugin.saveSettings();
 	}

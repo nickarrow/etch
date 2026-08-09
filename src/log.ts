@@ -9,10 +9,19 @@ import { App } from 'obsidian';
 export class EtchLog {
 	private enabled = false;
 	private queue: Promise<void> = Promise.resolve();
+	private reportedFailure = false;
+	/** Set once the log file is known to exist, to keep the tap path short. */
+	private fileExists = false;
 
 	constructor(
 		private readonly app: App,
 		private readonly path: string,
+		/**
+		 * Called at most once, on the first write failure. The log is the
+		 * project's evidence channel, so a silent failure is worse than the
+		 * failure: it produces a log that reads as complete.
+		 */
+		private readonly onWriteFailure?: (error: unknown) => void,
 	) {}
 
 	setEnabled(enabled: boolean): void {
@@ -41,27 +50,36 @@ export class EtchLog {
 	}
 
 	/**
-	 * Appends are chained so lines land in order, and the returned promise
-	 * resolves only once the line is on disk. Awaiting it before a navigation
-	 * is what makes the log usable as handoff evidence.
+	 * Appends are chained so lines land in order. The returned promise
+	 * resolves once the adapter's write call has returned, which is as close
+	 * to "on disk" as the public API goes, or once a failure has been
+	 * reported. It never rejects: a logging failure must not mask or block a
+	 * handoff, so callers awaiting a flush before navigating cannot be
+	 * derailed by one. Failures reach the console and onWriteFailure instead.
 	 */
 	private append(text: string): Promise<void> {
 		this.queue = this.queue
 			.then(() => this.write(text))
 			.catch((error: unknown) => {
-				// A logging failure must never mask or block a handoff.
 				console.error('[etch] debug log write failed', error);
+				if (!this.reportedFailure) {
+					this.reportedFailure = true;
+					this.onWriteFailure?.(error);
+				}
 			});
 		return this.queue;
 	}
 
 	private async write(text: string): Promise<void> {
 		const { adapter } = this.app.vault;
-		if (await adapter.exists(this.path)) {
+		// The existence check is skipped once it has been answered, which
+		// halves the adapter calls per line on the tap path.
+		if (this.fileExists || (await adapter.exists(this.path))) {
 			await adapter.append(this.path, text);
 		} else {
 			await adapter.write(this.path, `# Etch debug log\n\n${text}`);
 		}
+		this.fileExists = true;
 	}
 }
 

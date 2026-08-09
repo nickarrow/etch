@@ -25,6 +25,26 @@ export interface WitnessRecord extends Fingerprint {
 
 export type WitnessOutcome = 'changed' | 'unchanged' | 'missing';
 
+/**
+ * The record crosses the same data boundary the route value does: data.json
+ * is hand-editable and syncs between devices. An unchecked record reaches
+ * the adapter as an undefined path, and a check that throws on every launch
+ * cannot resolve itself, so the shape is verified before it is trusted.
+ */
+export function isWitnessRecord(value: unknown): value is WitnessRecord {
+	if (typeof value !== 'object' || value === null) return false;
+	const record = value as Record<string, unknown>;
+	return (
+		typeof record.vaultPath === 'string' &&
+		record.vaultPath.length > 0 &&
+		typeof record.sha256 === 'string' &&
+		record.sha256.length === 64 &&
+		typeof record.size === 'number' &&
+		typeof record.mtime === 'number' &&
+		typeof record.armedAt === 'number'
+	);
+}
+
 export interface WitnessReport {
 	outcome: WitnessOutcome;
 	after: Fingerprint | null;
@@ -67,15 +87,28 @@ export async function checkWitnessRecord(
 	};
 }
 
+/**
+ * Null means "cannot fingerprint", which covers a missing file and an
+ * unreadable one alike: for verification the two are the same answer, and a
+ * throw here would otherwise surface as a check that repeats every launch.
+ */
 async function takeFingerprint(
 	app: App,
 	vaultPath: string,
 ): Promise<Fingerprint | null> {
 	const { adapter } = app.vault;
-	const stat = await adapter.stat(vaultPath);
-	if (!stat) return null;
-	const bytes = await adapter.readBinary(vaultPath);
-	return { size: stat.size, mtime: stat.mtime, sha256: await sha256Hex(bytes) };
+	try {
+		const stat = await adapter.stat(vaultPath);
+		if (!stat) return null;
+		const bytes = await adapter.readBinary(vaultPath);
+		return {
+			size: stat.size,
+			mtime: stat.mtime,
+			sha256: await sha256Hex(bytes),
+		};
+	} catch {
+		return null;
+	}
 }
 
 async function sha256Hex(buffer: ArrayBuffer): Promise<string> {

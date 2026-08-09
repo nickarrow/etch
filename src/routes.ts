@@ -13,6 +13,15 @@ export const ROUTE_IDS = ['file', 'shareddocuments'] as const;
 export type RouteId = (typeof ROUTE_IDS)[number];
 
 /**
+ * Dropdown labels, in display order with the default first. They live beside
+ * the route ids so a third route cannot compile without its label.
+ */
+export const ROUTE_LABELS: Record<RouteId, string> = {
+	file: 'Preview (default)',
+	shareddocuments: 'Files viewer',
+};
+
+/**
  * The route value crosses a data boundary: data.json is hand-editable and
  * syncs between devices. Both readers of that file guard with this. A
  * `share-sheet` value from a pre-0.1.0 install falls back to the default
@@ -44,6 +53,37 @@ interface HandoffPlan {
 	navigate: () => void;
 }
 
+/** How the URL is handed to the OS. Route 1 opens, route 2 assigns. */
+export type NavigationKind = 'open' | 'assign';
+
+export interface HandoffTarget {
+	url: string;
+	kind: NavigationKind;
+	/** Logged verbatim before navigating, so the log names what fired. */
+	description: string;
+}
+
+/**
+ * The two URLs are the product, so they are built by a pure function the
+ * tests can pin. The description strings are the ones the device logs carry;
+ * changing them breaks continuity with the archived session logs.
+ */
+export function buildHandoffTarget(
+	route: RouteId,
+	encodedPath: string,
+): HandoffTarget {
+	if (route === 'file') {
+		const url = `file://${encodedPath}`;
+		return { url, kind: 'open', description: `window.open("${url}")` };
+	}
+	const url = `shareddocuments://${encodedPath}`;
+	return {
+		url,
+		kind: 'assign',
+		description: `window.location.href = "${url}"`,
+	};
+}
+
 export async function performHandoff(
 	context: HandoffContext,
 	file: TFile,
@@ -54,21 +94,20 @@ export async function performHandoff(
 	if (!plan) return;
 
 	// Arm and persist the witness before the navigation fires; the webview
-	// may not survive the trip.
-	let record: WitnessRecord;
+	// may not survive the trip. Verification is a debug aid, so failing to
+	// arm it costs the check and not the handoff: the path is already
+	// resolved and validated here, and hashing a very large file is the
+	// likeliest way to fail. The user is told the check is unavailable.
 	try {
-		record = await armWitnessRecord(app, file.path);
+		const record = await armWitnessRecord(app, file.path);
 		await context.arm(record);
-	} catch (error) {
-		new Notice(
-			'Could not record the handoff for verification. No handoff was made.',
+		await log.line(
+			`witness armed: ${record.vaultPath} size=${record.size} mtime=${record.mtime} sha256=${record.sha256}`,
 		);
+	} catch (error) {
+		new Notice('Handing off without verification.');
 		await log.error(`witness arm failed for ${file.path}`, error);
-		return;
 	}
-	await log.line(
-		`witness armed: ${record.vaultPath} size=${record.size} mtime=${record.mtime} sha256=${record.sha256}`,
-	);
 	await log.line(`route ${route}: ${plan.description}`);
 
 	plan.navigate();
@@ -90,21 +129,15 @@ async function buildPlan(
 	}
 	await log.line(`resolved ${file.path} -> ${resolved.absolutePath}`);
 
-	const encodedPath = encodePathSegments(resolved.absolutePath);
-	if (route === 'file') {
-		const url = `file://${encodedPath}`;
-		return {
-			description: `window.open("${url}")`,
-			navigate: () => {
-				window.open(url);
-			},
-		};
-	}
-	const url = `shareddocuments://${encodedPath}`;
+	const target = buildHandoffTarget(route, encodePathSegments(resolved.absolutePath));
 	return {
-		description: `window.location.href = "${url}"`,
+		description: target.description,
 		navigate: () => {
-			window.location.href = url;
+			if (target.kind === 'open') {
+				window.open(target.url);
+			} else {
+				window.location.href = target.url;
+			}
 		},
 	};
 }
