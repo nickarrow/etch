@@ -2,9 +2,10 @@
 
 Native Apple Pencil markup for Obsidian PDFs and images.
 
-One tap opens a vault PDF or image in Apple Preview. Draw with the Pencil,
-switch back, and the ink is in the same vault file: visible everywhere the
-file appears, and it travels with the file when it syncs or moves.
+One tap opens a vault PDF or image for Apple Pencil markup. Draw with the
+Pencil, tap the check mark, and the ink is in the same vault file: visible
+everywhere the file appears, and it travels with the file when it syncs or
+moves.
 
 ## Limitations
 
@@ -15,26 +16,35 @@ file appears, and it travels with the file when it syncs or moves.
   new iPadOS major is unverified until it has been re-checked.
 - Local vaults only ("On My iPad"). Files anywhere else, including iCloud
   Drive vaults, are declined with a notice.
-- Apple Preview must be installed; iPadOS allows deleting it, per Apple's
-  documentation. What happens if Preview is absent is unverified.
-- PDF, PNG, JPG, and JPEG files. Other formats are left alone. HEIC, TIFF,
-  and GIF are candidates waiting on a device round trip. SVG is excluded for
-  good, since it is text and what a markup tool writes back into one is
+- Apple's Preview app loses Pencil markup on long PDFs, so Etch does not use
+  it for them. On an iPad Pro running iPadOS 26.5.2, an 18 MB and a 243 MB
+  document, both several hundred pages, kept their markup through the Files
+  viewer every time and lost it through Preview every time. Etch defaults to
+  the Files viewer, and sends any file of 4 MB or more there even when Preview
+  is the chosen route. A short document that happens to have many pages is the
+  gap in that rule: it stays on Preview, so use the Files viewer route if you
+  work in one.
+- Apple Preview must be installed for the Preview route; iPadOS allows
+  deleting it, per Apple's documentation. What happens if Preview is absent is
+  unverified.
+- PDF, PNG, JPG, and JPEG files. Other formats are left alone. HEIC and TIFF
+  are not formats Obsidian displays, so they are out of reach. SVG is excluded
+  for good, since it is text and what a markup tool writes back into one is
   unverified.
 - The command works on an open file, so the mobile toolbar is not a usable
   place for it: Obsidian 1.13.4 does not show that toolbar over a PDF view.
   Use the pencil icon, the file menu, or the command palette.
 - Buttons on files embedded inside a note are not in this release.
-- On the Files viewer route, markup saves when you tap its check mark.
-  Leaving Files without that tap leaves the file unchanged until you return
-  and tap it (observed on iPadOS 26.5.2 with Obsidian 1.13.4).
+- In the Files viewer, markup saves when you tap the check mark. Leaving
+  without that tap leaves the file unchanged until you return and tap it
+  (observed on iPadOS 26.5.2 with Obsidian 1.13.4).
 
 ## Why a handoff
 
 Drawing tools inside Obsidian work on a canvas in the webview, and the
 webview is the boundary: PencilKit, the ink framework behind Apple's own
 apps, is native UIKit, and no plugin can ship it. Etch gets PencilKit by
-handing the file to the app that has it. Obsidian keeps the vault, Preview
+handing the file to a viewer that has it. Obsidian keeps the vault, iPadOS
 brings the Pencil, and the markup lands in the PDF as ordinary annotations
 that later sessions can re-edit or erase. Strokes on an image were also
 re-editable in a later session on iPadOS 26.5.2, which is an observation
@@ -45,8 +55,8 @@ not depend on it.
 
 Etch is only the bridge. A tap resolves the file's absolute on-disk path
 from Obsidian's public API, validates it, percent-encodes it into a URL, and
-navigates exactly once; iPadOS then opens the document in Preview (`file://`,
-the default route) or in the Files viewer (`shareddocuments://`). Etch makes
+navigates exactly once; iPadOS then opens the document in the Files viewer
+(`shareddocuments://`, the default route) or in Preview (`file://`). Etch makes
 no internal Obsidian API calls: both routes are ordinary web navigation, and
 the path is parsed from what a public API returns. One disclosure applies:
 how iPadOS handles these URLs from an app webview is undocumented behavior
@@ -63,7 +73,16 @@ Three ways to start, all equivalent:
 - choose "Mark up with Pencil" from the file's long-press menu,
 - run the "Mark up with Pencil" command from the command palette.
 
-Draw with the Pencil, switch back to Obsidian, and the PDF view and any
+The file opens in the Files viewer. Tap Markup, draw with the Pencil, then tap
+the check mark, which is what saves. Switch back to Obsidian and the ink is in
+the file. That viewer also offers "Open in Preview"; it is worth avoiding,
+since Preview is where long documents lose their markup.
+
+On the Preview route instead, draw with the Pencil and switch back to
+Obsidian; there is nothing to tap, and Preview saves a moment after you leave.
+Large PDFs still open in the Files viewer, with a notice saying why.
+
+After a markup, the PDF view and any
 embeds of it refresh on their own (observed on iPadOS 26.5.2 with Obsidian
 1.13.4; see `docs/spike/FINDINGS.md`). Images need help with that: Obsidian
 keeps serving the picture it already cached, so Etch gives a changed image a
@@ -75,11 +94,11 @@ markup landed.
 
 ## Settings
 
-- Handoff route. "Preview (default)" opens the file directly in Preview.
-  "Files viewer" opens it in Files, where Markup and Open in Preview are one
-  tap each; tap the check mark there to save before returning. If the default
-  route ever stops working after an OS update, switching to Files viewer is
-  the fallback.
+- Handoff route. "Files viewer (default)" opens the file in the Files viewer,
+  where Markup is one tap and the check mark saves. "Preview" opens it
+  directly in Preview, which is smoother on small files since it saves without
+  a tap, and any file of 4 MB or more still goes to the Files viewer. If one
+  route ever stops working after an OS update, the other is the fallback.
 - Debug logging. Writes a verbose log to the plugin folder and enables the
   "Verify last handoff" command, which re-hashes the last handed-off file
   and reports whether its content changed. When off, errors go to the
@@ -89,9 +108,9 @@ markup landed.
 
 ## Data safety
 
-Etch hands Preview the real vault file, and Preview rewrites it in place.
-Obsidian's File Recovery does not snapshot binary attachments, so keep your
-own backup of any file you cannot afford to lose. This matters more for an
+Etch hands the viewer the real vault file, and the viewer rewrites it in
+place. Obsidian's File Recovery does not snapshot binary attachments, so keep
+your own backup of any file you cannot afford to lose. This matters more for an
 image than for a PDF: PDF ink arrives as annotation objects a later session
 can erase, while an image comes back as a new picture. Your markup never
 lives in Etch: it is written into the file itself, readable in any app that
