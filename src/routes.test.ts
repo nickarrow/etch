@@ -1,18 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
 
-// The obsidian package ships type definitions only; routes.ts imports
-// Notice as a runtime value, so give the module a stand-in.
+// The obsidian package ships type definitions only. routes.ts imports Notice
+// as a runtime value, and settings.ts, pulled in here to pin the default route
+// against the dropdown order, extends PluginSettingTab at module scope.
 vi.mock('obsidian', () => ({
 	Notice: class {},
+	PluginSettingTab: class {},
 }));
 
 import {
+	LARGE_FILE_BYTES,
 	ROUTE_LABELS,
 	buildHandoffTarget,
+	chooseRoute,
 	encodePathSegments,
 	isRouteId,
 } from './routes';
 import { parseResourcePath } from './resolve';
+import { DEFAULT_SETTINGS } from './settings';
 
 describe('encodePathSegments', () => {
 	it('encodes spaces and keeps separators', () => {
@@ -116,8 +121,60 @@ describe('buildHandoffTarget', () => {
 describe('ROUTE_LABELS', () => {
 	it('labels both routes with the default first', () => {
 		expect(Object.entries(ROUTE_LABELS)).toEqual([
-			['file', 'Preview (default)'],
-			['shareddocuments', 'Files viewer'],
+			['shareddocuments', 'Files viewer (default)'],
+			['file', 'Preview'],
 		]);
+	});
+
+	it('names the same route the settings default selects', () => {
+		const [first] = Object.keys(ROUTE_LABELS);
+		expect(first).toBe(DEFAULT_SETTINGS.route);
+		expect(DEFAULT_SETTINGS.route).toBe('shareddocuments');
+	});
+});
+
+describe('chooseRoute', () => {
+	// Preview wrote nothing on two several-hundred-page PDFs across nine
+	// handoffs in the wave 3 session; the Files viewer wrote both every time.
+	it('sends a large file to the Files viewer even when Preview is chosen', () => {
+		expect(chooseRoute('file', LARGE_FILE_BYTES)).toEqual({
+			route: 'shareddocuments',
+			overridden: true,
+		});
+		expect(chooseRoute('file', 254739264)).toEqual({
+			route: 'shareddocuments',
+			overridden: true,
+		});
+	});
+
+	it('leaves a small file on Preview', () => {
+		// The 1 MB PDF and the images that round-tripped through Preview in
+		// the same session.
+		for (const size of [0, 1016315, LARGE_FILE_BYTES - 1]) {
+			expect(chooseRoute('file', size)).toEqual({
+				route: 'file',
+				overridden: false,
+			});
+		}
+	});
+
+	it('never overrides the Files viewer, at any size', () => {
+		for (const size of [0, LARGE_FILE_BYTES, 254739264]) {
+			expect(chooseRoute('shareddocuments', size)).toEqual({
+				route: 'shareddocuments',
+				overridden: false,
+			});
+		}
+	});
+
+	it('treats the threshold as inclusive', () => {
+		expect(chooseRoute('file', LARGE_FILE_BYTES - 1).overridden).toBe(false);
+		expect(chooseRoute('file', LARGE_FILE_BYTES).overridden).toBe(true);
+	});
+
+	it('sits well under the smallest size known to fail', () => {
+		// 18 MB failed on device. A threshold above that would ship the
+		// failure; this test is what keeps a later tweak honest.
+		expect(LARGE_FILE_BYTES).toBeLessThan(18335754);
 	});
 });

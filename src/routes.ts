@@ -8,7 +8,7 @@ import { armWitnessRecord, WitnessRecord } from './witness';
  * setting, there is no automatic fallback between routes, and a handoff
  * fires exactly one navigation.
  */
-export const ROUTE_IDS = ['file', 'shareddocuments'] as const;
+export const ROUTE_IDS = ['shareddocuments', 'file'] as const;
 
 export type RouteId = (typeof ROUTE_IDS)[number];
 
@@ -17,9 +17,48 @@ export type RouteId = (typeof ROUTE_IDS)[number];
  * the route ids so a third route cannot compile without its label.
  */
 export const ROUTE_LABELS: Record<RouteId, string> = {
-	file: 'Preview (default)',
-	shareddocuments: 'Files viewer',
+	shareddocuments: 'Files viewer (default)',
+	file: 'Preview',
 };
+
+/**
+ * At or above this size, a handoff uses the Files viewer even when the
+ * setting says Preview.
+ *
+ * Preview wrote nothing on two several-hundred-page PDFs across nine handoffs
+ * in the wave 3 session, 2026-08-11: an 18 MB file and a 243 MB file, one
+ * window 34 minutes long. The Files viewer wrote both, every attempt, within
+ * seconds. A 1 MB PDF and four images round-tripped through Preview in the
+ * same session, so small files are unaffected.
+ *
+ * Bytes are a proxy. The failure tracks document weight, and page count
+ * tracks that better, but page objects live in compressed object streams in
+ * any modern PDF, so counting them needs a parser this plugin has no business
+ * carrying. The threshold sits far below the smallest file known to fail
+ * because the costs are lopsided: sending a small file through the Files
+ * viewer costs two taps, and sending a heavy one to Preview costs the user's
+ * handwriting. A small file with many pages is the known hole (ETCH.md, open
+ * question 8).
+ */
+export const LARGE_FILE_BYTES = 4 * 1024 * 1024;
+
+export interface RouteDecision {
+	route: RouteId;
+	/** True when the size override moved this handoff off the chosen route. */
+	overridden: boolean;
+}
+
+/**
+ * Picks the route before anything is attempted, from the size the witness
+ * already needs. Not a fallback: nothing is retried, nothing is chained, and
+ * one navigation fires per gesture (engineering rule 6).
+ */
+export function chooseRoute(selected: RouteId, sizeBytes: number): RouteDecision {
+	if (selected === 'file' && sizeBytes >= LARGE_FILE_BYTES) {
+		return { route: 'shareddocuments', overridden: true };
+	}
+	return { route: selected, overridden: false };
+}
 
 /**
  * The route value crosses a data boundary: data.json is hand-editable and
@@ -84,14 +123,30 @@ export function buildHandoffTarget(
 	};
 }
 
+/**
+ * Shown when the size override redirects a handoff. It has to explain a
+ * viewer the user did not choose, and tell them how to save once they are
+ * there, because the Files viewer needs a check-mark tap and Preview does not.
+ */
+export const LARGE_FILE_NOTICE =
+	'Etch used the Files viewer for this large file, because Preview can lose markup on large PDFs. Tap Markup, then the check mark to save.';
+
 export async function performHandoff(
 	context: HandoffContext,
 	file: TFile,
 ): Promise<void> {
-	const { app, log, route } = context;
+	const { app, log } = context;
 
-	const plan = await buildPlan(context, file);
+	const decision = chooseRoute(context.route, file.stat.size);
+	const plan = await buildPlan(context, file, decision.route);
 	if (!plan) return;
+
+	if (decision.overridden) {
+		new Notice(LARGE_FILE_NOTICE, 15000);
+		await log.line(
+			`size override: ${file.path} is ${file.stat.size} bytes, using ${decision.route} instead of ${context.route}`,
+		);
+	}
 
 	// Arm and persist the witness before the navigation fires; the webview
 	// may not survive the trip. Verification is a debug aid, so failing to
@@ -108,7 +163,7 @@ export async function performHandoff(
 		new Notice('Handing off without verification.');
 		await log.error(`witness arm failed for ${file.path}`, error);
 	}
-	await log.line(`route ${route}: ${plan.description}`);
+	await log.line(`route ${decision.route}: ${plan.description}`);
 
 	plan.navigate();
 }
@@ -116,8 +171,9 @@ export async function performHandoff(
 async function buildPlan(
 	context: HandoffContext,
 	file: TFile,
+	route: RouteId,
 ): Promise<HandoffPlan | null> {
-	const { app, log, route } = context;
+	const { app, log } = context;
 
 	const resolved = resolveAbsolutePath(app, file);
 	if (!resolved.ok) {

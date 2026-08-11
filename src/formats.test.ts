@@ -25,8 +25,9 @@ describe('MARKUP_EXTENSIONS', () => {
 	});
 
 	it('names only formats with evidence behind them', () => {
-		// The gate this test exists for: a candidate format joins the list on
-		// a witnessed device round trip, and svg never joins it.
+		// The gate this test exists for: a format joins the list on a
+		// witnessed device round trip. heic and tiff cannot, since Obsidian
+		// does not display them, and svg is excluded whatever a run says.
 		for (const candidate of ['heic', 'tiff', 'gif', 'svg', 'webp', 'avif']) {
 			expect(isMarkupExtension(candidate)).toBe(false);
 		}

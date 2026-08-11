@@ -3,16 +3,18 @@ import type { TFile } from 'obsidian';
 /**
  * Which vault files Etch will hand to Preview.
  *
- * A format ships once a device round trip has been witnessed for it. PDF has
- * one in every session from the spike onward, and PNG has three from spike
- * session 5. `jpg` and `jpeg` ship alongside PNG on the plan's authority and
- * are unverified until this wave's device matrix round-trips them.
+ * A format ships once a device round trip has been witnessed for it. All four
+ * of these have one, from the wave 3 session of 2026-08-11; PDF and PNG have
+ * several going back to the spike.
  *
- * `heic`, `tiff`, and `gif` are candidates and are absent on purpose: they
- * join the list on a witnessed round trip, not before. `svg` is excluded on
- * purpose, whatever a device run says: it is a text format, what a markup
- * tool writes back into one is unverified, and the risk to a vault file is
- * not worth the format.
+ * `heic` and `tiff` will not join: Obsidian's accepted-formats list covers
+ * avif, bmp, gif, jpeg, jpg, png, svg, and webp, so it never displays those
+ * two, and a file Obsidian does not show has nowhere to put a pencil. `gif` is
+ * on that list, did not appear on device in the wave 3 session for reasons
+ * nobody established, and would flatten to a still image under markup anyway.
+ * `svg` is excluded on purpose whatever a device run says: it is a text
+ * format, what a markup tool writes back into one is unverified, and the risk
+ * to a vault file is not worth the format.
  *
  * The extension check is what keeps the pencil off files Etch cannot
  * promise anything about; Obsidian's own image view opens more formats than
