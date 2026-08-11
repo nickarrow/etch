@@ -1,7 +1,7 @@
 import type { TFile } from 'obsidian';
 
 /**
- * Which vault files Etch will hand to Preview.
+ * Which vault files Etch will hand to a markup viewer.
  *
  * A format ships once a device round trip has been witnessed for it. All four
  * of these have one, from the wave 3 session of 2026-08-11; PDF and PNG have

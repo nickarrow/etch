@@ -34,7 +34,7 @@ export class EtchSettingTab extends PluginSettingTab {
 				render: (setting) => {
 					setting.settingEl.addClass('etch-platform-note');
 					setting.setDesc(
-						'Etch requires an iPad. It opens vault PDFs and images in Apple Preview for Apple Pencil markup.',
+						'Etch requires an iPad. It opens vault PDFs and images for Apple Pencil markup.',
 					);
 				},
 			},

@@ -4,9 +4,11 @@ import { resolveAbsolutePath } from './resolve';
 import { armWitnessRecord, WitnessRecord } from './witness';
 
 /**
- * The two handoff routes, both plain web navigation. Selection is a
- * setting, there is no automatic fallback between routes, and a handoff
- * fires exactly one navigation.
+ * The two handoff routes, both plain web navigation. Selection is a setting,
+ * nothing is retried after a failure, and a handoff fires exactly one
+ * navigation. The single automatic behavior is the size override below, which
+ * picks a route before anything is attempted rather than after something
+ * failed.
  */
 export const ROUTE_IDS = ['shareddocuments', 'file'] as const;
 
@@ -37,8 +39,10 @@ export const ROUTE_LABELS: Record<RouteId, string> = {
  * carrying. The threshold sits far below the smallest file known to fail
  * because the costs are lopsided: sending a small file through the Files
  * viewer costs two taps, and sending a heavy one to Preview costs the user's
- * handwriting. A small file with many pages is the known hole (ETCH.md, open
- * question 8).
+ * handwriting. A small file with many pages is the known hole (ETCH.md, the
+ * open question on where the boundary sits).
+ *
+ * 4,194,304 bytes. User-facing copy rounds it to 4 MB.
  */
 export const LARGE_FILE_BYTES = 4 * 1024 * 1024;
 
@@ -49,12 +53,23 @@ export interface RouteDecision {
 }
 
 /**
- * Picks the route before anything is attempted, from the size the witness
- * already needs. Not a fallback: nothing is retried, nothing is chained, and
- * one navigation fires per gesture (engineering rule 6).
+ * Picks the route before anything is attempted. Not a fallback: nothing is
+ * retried, nothing is chained, and one navigation fires per gesture
+ * (engineering rule 6).
+ *
+ * The size comes from Obsidian's cached file stat, which is what makes it
+ * free, and which means it can lag the file on disk. Only a size known to be
+ * small keeps the Preview route, so a stat that is missing, unreadable, or
+ * nonsense sends the handoff to the viewer that does not lose ink. The
+ * asymmetry is deliberate: guessing wrong toward the Files viewer costs two
+ * taps, and guessing wrong toward Preview costs the markup.
  */
 export function chooseRoute(selected: RouteId, sizeBytes: number): RouteDecision {
-	if (selected === 'file' && sizeBytes >= LARGE_FILE_BYTES) {
+	const knownSmall =
+		Number.isFinite(sizeBytes) &&
+		sizeBytes >= 0 &&
+		sizeBytes < LARGE_FILE_BYTES;
+	if (selected === 'file' && !knownSmall) {
 		return { route: 'shareddocuments', overridden: true };
 	}
 	return { route: selected, overridden: false };
@@ -76,6 +91,7 @@ export function isRouteId(value: unknown): value is RouteId {
 export interface HandoffContext {
 	app: App;
 	log: EtchLog;
+	/** What the setting says. The size override can move a handoff off it. */
 	route: RouteId;
 	/** Persist the armed witness record; resolves once the write completes. */
 	arm: (record: WitnessRecord) => Promise<void>;
@@ -168,8 +184,12 @@ export async function performHandoff(
 	plan.navigate();
 }
 
+/**
+ * The chosen route is passed in rather than read from the context, so the
+ * only route in scope here is the effective one.
+ */
 async function buildPlan(
-	context: HandoffContext,
+	context: Omit<HandoffContext, 'route'>,
 	file: TFile,
 	route: RouteId,
 ): Promise<HandoffPlan | null> {

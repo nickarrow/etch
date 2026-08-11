@@ -10,6 +10,7 @@ vi.mock('obsidian', () => ({
 
 import {
 	LARGE_FILE_BYTES,
+	LARGE_FILE_NOTICE,
 	ROUTE_LABELS,
 	buildHandoffTarget,
 	chooseRoute,
@@ -176,5 +177,32 @@ describe('chooseRoute', () => {
 		// 18 MB failed on device. A threshold above that would ship the
 		// failure; this test is what keeps a later tweak honest.
 		expect(LARGE_FILE_BYTES).toBeLessThan(18335754);
+	});
+
+	it('is the size the docs and the copy describe', () => {
+		// ETCH.md says 4 MiB and the user-facing copy rounds it to 4 MB.
+		expect(LARGE_FILE_BYTES).toBe(4194304);
+	});
+
+	it('treats a size it cannot trust as large', () => {
+		// The size is Obsidian's cached stat, so it can be absent or stale.
+		// Only a size known to be small keeps Preview: guessing wrong toward
+		// the Files viewer costs two taps, the other way costs the markup.
+		for (const size of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
+			expect(chooseRoute('file', size)).toEqual({
+				route: 'shareddocuments',
+				overridden: true,
+			});
+		}
+	});
+});
+
+describe('LARGE_FILE_NOTICE', () => {
+	it('matches the settings copy', () => {
+		// Verbatim in ETCH.md's settings copy, like the dropdown labels: it
+		// explains a viewer the user did not choose and how to save there.
+		expect(LARGE_FILE_NOTICE).toBe(
+			'Etch used the Files viewer for this large file, because Preview can lose markup on large PDFs. Tap Markup, then the check mark to save.',
+		);
 	});
 });
