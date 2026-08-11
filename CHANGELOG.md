@@ -17,12 +17,12 @@ heading at release; the same lines become the GitHub release notes.
 
 ### Changed
 
-- The Files viewer is now the default handoff route. Apple's Preview app loses
-  Pencil markup on long PDFs, and the Files viewer kept it on every document
-  it was tested with, including a 243 MB one.
+- The Files viewer is now the default handoff route. On iPadOS 26.5.2, Apple's
+  Preview app lost Pencil markup on long PDFs, while the Files viewer kept it
+  on every document tested, including a 243 MB one.
 - On the Preview route, files of 4 MB or more now open in the Files viewer
-  anyway, with a notice, so a long document cannot quietly lose its markup.
-
+  anyway, with a notice, which keeps long documents off the route that loses
+  them.
 - A handoff now goes ahead when verification cannot be armed, with a notice,
   instead of being refused. Verification is a debug aid and should not cost
   anyone the feature.
