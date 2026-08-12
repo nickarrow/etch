@@ -7,6 +7,8 @@ heading at release; the same lines become the GitHub release notes.
 
 ## Unreleased
 
+## 0.2.0 - 2026-08-11
+
 ### Added
 
 - Images can be marked up the same way as PDFs: PNG, JPG, and JPEG files.
