@@ -1,7 +1,7 @@
 {
 	"id": "etch",
 	"name": "Etch",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"minAppVersion": "1.13.4",
 	"description": "Native Apple Pencil markup for vault PDFs. One tap opens the file for markup, and the ink saves into the same vault file.",
 	"author": "Nick Aretakis",
